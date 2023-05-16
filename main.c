@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -21,9 +22,11 @@
 
 #define CLIENT_COUNT 5
 #define GUICHET_COUNT 4
-typedef enum {TASK1, TASK2, TASK3} task_t;
+typedef enum {
+    TASK1, TASK2, TASK3
+} task_t;
 
-struct Client{
+struct Client {
     /**
      * Idd auprès du dispatcher
      * temp minimum et maximum avant d'introduire un nouveau paquet
@@ -37,10 +40,11 @@ struct Client{
     task_t demandes[];
 
 }
-typedef struct Client client_t;
+typedef
+struct Client client_t;
 
 
-struct Guichets{
+struct Guichets {
     /**
      * Idd auprès du dispatcher.
      * Idd du type de demande gérées.
@@ -48,10 +52,11 @@ struct Guichets{
     unsigned int id;
     task_t type_demande;
 }
-typedef struct Guichets guichet_t;
+typedef
+struct Guichets guichet_t;
 
 
-struct Demande{
+struct Demande {
     /**
      * Idd du type de demande
      * Serial Number de l'instance (désigné par le dispatcher)
@@ -61,10 +66,11 @@ struct Demande{
     int serial_number;
     time_t delay;
 }
-typedef struct Demande demande_t;
+typedef
+struct Demande demande_t;
 
 
-int client_behavior(){
+int client_behavior() {
     /**
      * 1. Créer un client
      * 2. Envoyer une demande
@@ -89,7 +95,7 @@ int client_behavior(){
 }
 
 
-int guichet_behavior(){
+int guichet_behavior() {
     /**
      * 1. Créer un guichet
      * 2. Attendre une demande
@@ -104,8 +110,7 @@ int guichet_behavior(){
 }
 
 
-int main(int argc, char const *argv[])
-{
+int main(int argc, char const *argv[]) {
     pthread_t *clients[CLIENT_COUNT];
     pthread_t *guichets[GUICHET_COUNT];
 
@@ -120,26 +125,22 @@ int main(int argc, char const *argv[])
         for (int i = 0; i < CLIENT_COUNT; i++) {
             pthread_join(thread[i], NULL);
         }
-    }
-    else if (client > 0) {
+    } else if (client > 0) {
         pid_t guichet = fork();
         if (guichet == 0) {
             // TODO : guichet behavior
-    
-        }
-        else if (guichet > 0) {
+
+        } else if (guichet > 0) {
             // TODO : Dispatcher behavior
-        }
-        else {
+        } else {
             perror("fork");
             return EXIT_FAILURE;
         }
-    }
-    else {
+    } else {
         perror("fork");
         return EXIT_FAILURE;
     }
-    
+
 
     return EXIT_SUCCESS;
 }
