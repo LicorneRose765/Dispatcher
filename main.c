@@ -44,8 +44,6 @@ typedef struct {
     task_t* demandes;
 
 } Client;
-// typedef
-// struct Client client_t;
 
 
 typedef struct {
@@ -56,8 +54,6 @@ typedef struct {
     unsigned int id;
     task_t type_demande;
 } Guichet;
-// typedef
-// struct Guichets guichet_t;
 
 
 typedef struct {
@@ -70,8 +66,6 @@ typedef struct {
     int serial_number;
     time_t delay;
 } Demande;
-// typedef
-// struct Demande demande_t;
 
 
 int client_behavior(char *block) {
@@ -97,12 +91,12 @@ int client_behavior(char *block) {
         else client.demandes[i] = TASK2;
     }
 
-    // client.demandes = {TASK1, TASK2}; // TODO : random
-
     while (sent < NUMBER_OF_REQUESTS) {
         // sleep(client.temps_min);
         // TODO : envoyer une demande
+        printf("Writing some data\n");
         strncpy(block, "I'm some data", BLOCK_SIZE);
+        // snprintf(block, BLOCK_SIZE, "I'm some data");
         sent++;
         // sleep(client.temps_max);
     }
@@ -174,32 +168,33 @@ int main(int argc, char const *argv[]) {
     if (client == 0) {
         // Créer des thread avec tous les clients
         for (int i = 0; i < CLIENT_COUNT; i++) {
-            pthread_create(clients[i], NULL, client_behavior, block);
+            pthread_create(&clients[i], NULL, client_behavior, block);
         }
 
         // Attendre la fin de tous les threads
         for (int i = 0; i < CLIENT_COUNT; i++) {
             pthread_join(*clients[i], NULL);
         }
-        detach_block(block);
+        printf("All clients are dead\n");
     } else if (client > 0) {
         pid_t guichet = fork();
         if (guichet == 0) {
             // TODO : guichet behavior
             // Créer des thread avec tous les guichets
             for (int i = 0; i < CLIENT_COUNT; i++) {
-                pthread_create(guichets[i], NULL, guichet_behavior, block);
+                pthread_create(&guichets[i], NULL, guichet_behavior, block);
             }
 
             // Attendre la fin de tous les threads
             for (int i = 0; i < CLIENT_COUNT; i++) {
                 pthread_join(*guichets[i], NULL);
             }
-            detach_block(block);
+            printf("All guichets are dead\n");
         } else if (guichet > 0) {
             // TODO : Dispatcher behavior
+            printf("I'm going to read, wait...\n");
+            sleep(5);
             printf("Reading: \"%s\"\n", block);
-            detach_block(block);
         } else {
             perror("fork");
             return EXIT_FAILURE;
@@ -209,6 +204,6 @@ int main(int argc, char const *argv[]) {
         return EXIT_FAILURE;
     }
 
-
-    return EXIT_SUCCESS;
+    detach_block(block);
+    return destroy_block("application-shm");
 }
