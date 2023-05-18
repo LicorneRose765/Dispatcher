@@ -11,10 +11,12 @@
 #include <signal.h>
 #include <string.h>
 
+#include "block.h"
+
 
 /******************************************************************************
 * S-INFO-111 --- Solution pour Travail 1                                      *
-* Groupe 03                                                                   * 
+* Groupe 03                                                                   *
 * Membres:                                                                    *
 * - BERNARD Thomas                                                            *
 * - MOREAU Arnaud                                                             *
@@ -23,85 +25,24 @@
 
 #define CLIENT_COUNT 1
 #define GUICHET_COUNT 4
-#define IPC_ERROR -1
+#define IPC_ERROR (-1)
 #define WRITING_SUCCESS 1
-#define WRITING_ERROR -1
+#define WRITING_ERROR (-1)
 #define BLOCK_SIZE 12
 #define NUMBER_OF_REQUESTS 1
-
-
-static int get_block(char *filename, int size) {
-    key_t ipc_key;
-    // Try to get a key for the file
-    ipc_key = ftok(filename, 4242);
-    // No key = error
-    if (ipc_key == IPC_ERROR) return IPC_ERROR;
-    // Use the key to create/get a block ID associated with the key
-    return shmget(ipc_key, size, 0644 | IPC_CREAT);
-}
-
-
-char *load_block(char *filename, int size) {
-    int block_id = get_block(filename, size);
-    char *result;
-    // No block ID = error
-    if (block_id == IPC_ERROR) return NULL;
-    // Map the block into the process' address space
-    // to get a pointer to the block using the block ID
-    result = shmat(block_id, NULL, 0);
-    // No result = no block
-    if (result == (char *) IPC_ERROR) return NULL;
-    return result;
-}
-
-
-int detach_block(char *block) {
-    return (shmdt(block) != IPC_ERROR);
-}
-
-int destroy_block(char *filename) {
-    int id = get_block(filename, 0);
-    if (id == IPC_ERROR) return -1;
-    return (shmctl(id, IPC_RMID, NULL) != IPC_ERROR);
-}
-
-
-int write_to_block(char *str, char *block, char mode) {
-    switch (mode) {
-        // Write mode (overwrite everything)
-        case 'w':
-            // Prevent buffer overflow
-            if (strlen(str) > BLOCK_SIZE) {
-                perror("Not enough space in block to write string.");
-                return WRITING_ERROR;
-            } else strncpy(block, str, BLOCK_SIZE);
-            return WRITING_SUCCESS;
-            // Append mode (add to end of existing data)
-        case 'a':
-            // Prevent buffer overflow
-            int remaining_space = BLOCK_SIZE - strlen(block);
-            if (strlen(str) > remaining_space) {
-                perror("Not enough space remaining in block to write string.");
-                return WRITING_ERROR;
-            } else strncpy(block, str, BLOCK_SIZE);
-            return WRITING_SUCCESS;
-        default:
-            perror("Invalid mode.\n");
-            return WRITING_ERROR;
-    }
-}
 
 
 typedef enum {
     TASK1, TASK2, TASK3
 } task_t;
 
+
 typedef struct {
     /**
      * Idd auprès du dispatcher
      * temp minimum et maximum avant d'introduire un nouveau paquet
      * list demandes
-     * 
+     *
     * */
     unsigned int id;
     // TODO : ajouter le temps min et max
@@ -109,7 +50,7 @@ typedef struct {
     time_t temps_max;
     task_t *demandes;
 
-} Client;
+} client_t;
 
 
 typedef struct {
@@ -119,7 +60,7 @@ typedef struct {
     */
     unsigned int id;
     task_t type_demande;
-} Guichet;
+} guichet_t;
 
 
 typedef struct {
@@ -131,10 +72,10 @@ typedef struct {
     task_t type_demande;
     int serial_number;
     time_t delay;
-} Demande;
+} demande_t;
 
 
-int client_behavior(char *block) {
+void *client_behavior(void *arg) {
     /**
      * 1. Créer un client
      * 2. Envoyer une demande
@@ -142,9 +83,11 @@ int client_behavior(char *block) {
      * 4. Attendre un temps aléatoire
      * 5. Retour à l'étape 2
     */
+    char *block = (char *) arg;
     printf("Creating a client\n");
+
     int sent = 0;
-    Client client;
+    client_t client;
     client.id = gettid();
     client.temps_min = 1; // TODO : random
     client.temps_max = 5; // TODO : random
@@ -161,7 +104,7 @@ int client_behavior(char *block) {
         // sleep(client.temps_min);
         // TODO : envoyer une demande
         printf("Writing some data\n");
-        write_to_block("I'm some data", block, 'a');
+        write_to_block("aaa", block, 'a');
         // strncpy(block, "I'm some data", BLOCK_SIZE);
         // snprintf(block, BLOCK_SIZE, "I'm some data");
         sent++;
@@ -169,28 +112,25 @@ int client_behavior(char *block) {
     }
 
     free(client.demandes);
-    return EXIT_SUCCESS;
 }
 
 
-int guichet_behavior() {
+void *guichet_behavior() {
     /**
      * 1. Créer un guichet
      * 2. Attendre une demande
      * 3. Traiter la demande
      * 4. Retour à l'étape 2
     */
-    Guichet guichet;
+    guichet_t guichet;
     guichet.id = gettid();
     guichet.type_demande = TASK1; // TODO : random
-
-    return EXIT_SUCCESS;
 }
 
 
 int main(int argc, char const *argv[]) {
-    pthread_t *clients[CLIENT_COUNT];
-    pthread_t *guichets[GUICHET_COUNT];
+    pthread_t clients[CLIENT_COUNT];
+    pthread_t guichets[GUICHET_COUNT];
 
     pid_t client = fork();
     char *block = load_block("application-shm", BLOCK_SIZE);
@@ -204,7 +144,7 @@ int main(int argc, char const *argv[]) {
 
         // Attendre la fin de tous les threads
         for (int i = 0; i < CLIENT_COUNT; i++) {
-            pthread_join(*clients[i], NULL);
+            pthread_join(clients[i], NULL);
         }
         printf("All clients are dead\n");
     } else if (client > 0) {
@@ -218,7 +158,7 @@ int main(int argc, char const *argv[]) {
 
             // Attendre la fin de tous les threads
             for (int i = 0; i < CLIENT_COUNT; i++) {
-                pthread_join(*guichets[i], NULL);
+                pthread_join(guichets[i], NULL);
             }
             printf("All guichets are dead\n");
         } else if (guichet > 0) {
