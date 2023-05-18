@@ -14,6 +14,17 @@
 // ========= Signal handling =========
 
 
+void testHandler(int signum, siginfo_t *info, void *context) {
+    printf("[Client process] Received signal from dispatcher %d for the %d process\n", info->si_pid, info->si_value.sival_int);
+    pthread_sigqueue(info->si_value.sival_int, SIGRT_RESPONSE, info->si_value);
+
+}
+
+
+void threadResponseHandler(int signum, siginfo_t *info, void *context) {
+    printf("[Client %d] Received response from Dispacther\n", gettid());
+}
+
 
 
 
@@ -37,7 +48,7 @@ void *client_behavior(void *arg) {
 
     printf("Creating a client\n");
 
-    pid_t id = getpid();
+    pid_t id = gettid();
     time_t temps_min = (rand() % MAX_TIME_BEFORE_REQUESTS + 1);
     time_t temps_max = (rand() % MAX_TIME_BETWEEN_REQUESTS + 1);
     task_t *demandes;
@@ -51,8 +62,13 @@ void *client_behavior(void *arg) {
     }
 
     packet_request_t *packet = malloc(sizeof(packet_request_t));
+    packet->client_id = id;
     packet->number_of_request = num_demandes;
     packet->requests = demandes;
+
+    // Used to share the client id in the signal
+    union sigval value;
+    value.sival_int = id;
 
 
     //sleep(temps_min);
@@ -63,7 +79,7 @@ void *client_behavior(void *arg) {
 
         // Send request
         printf("[Client : %d] Sending request signal\n", id);
-        kill(dispatcher_id,  SIGRT_REQUEST);
+        sigqueue(dispatcher_id, SIGRT_REQUEST, value);
 
         // TODO : En fait le pid d'un thread c'est le pid du processus qui l'a créé :doomed:
 

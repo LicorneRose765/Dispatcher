@@ -30,6 +30,7 @@ typedef struct {
 
 
 typedef struct {
+    unsigned int client_id;
     int number_of_request;
     task_t *requests;
 } packet_request_t;

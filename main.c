@@ -14,6 +14,7 @@
 #include "utils.h"
 #include "block.h"
 #include "client.h"
+#include "guichet.h"
 
 
 
@@ -26,28 +27,6 @@
 * - MOREAU Cyril                                                              *
 ******************************************************************************/
 
-typedef struct {
-    /**
-     * Idd auprès du dispatcher.
-     * Idd du type de demande gérées.
-    */
-    unsigned int id;
-    task_t type_demande;
-} guichet_t;
-
-
-void *guichet_behavior(void *arg) {
-    /**
-     * 1. Créer un guichet
-     * 2. Attendre une demande
-     * 3. Traiter la demande
-     * 4. Retour à l'étape 2
-    */
-    guichet_t guichet;
-    guichet.id = gettid();
-    guichet.type_demande = TASK1; // TODO : random
-}
-
 sigset_t mask;
 struct sigaction descriptor;
 union sigval value;
@@ -56,13 +35,12 @@ union sigval value;
 // ========= Signal handling dispatcher ===========
 
 void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
-    printf("[Dispatcher] Received request from %d\n", info->si_pid);
+    printf("[Dispatcher] Received request from client %d\n", info->si_value.sival_int);
     // TODO : Traiter la demande
-
 }
 
 void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
-    printf("[Dispatcher] Received response from %d\n", info->si_pid);
+    printf("[Dispatcher] Received response from guichet\n");
     // TODO : traiter la réponse
 }
 
@@ -121,6 +99,9 @@ int main(int argc, char const *argv[]) {
         info->block = block;
         info->dispatcher_id = getppid();
         info->block_size = BLOCK_SIZE; // TODO : à changer
+
+
+        // TODO : Maybe use a message queue for each thread to communicate with their parent ?
 
         for (int i = 0; i < CLIENT_COUNT; i++) {
             pthread_create(&clients[i], NULL, client_behavior, info);
