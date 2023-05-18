@@ -9,10 +9,6 @@
 #include <signal.h>
 #include <string.h>
 
-
-#define IPC_ERROR (-1)
-#define WRITING_SUCCESS 1
-#define WRITING_ERROR (-1)
 #define BLOCK_SIZE 4096
 
 static int get_block(char *filename, int size) {

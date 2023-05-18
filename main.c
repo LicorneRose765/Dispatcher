@@ -11,7 +11,10 @@
 #include <signal.h>
 #include <string.h>
 
+#include "utils.h"
 #include "block.h"
+#include "client.h"
+
 
 
 /******************************************************************************
@@ -23,18 +26,6 @@
 * - MOREAU Cyril                                                              *
 ******************************************************************************/
 
-#define CLIENT_COUNT 1
-#define GUICHET_COUNT 4
-#define IPC_ERROR (-1)
-#define WRITING_SUCCESS 1
-#define WRITING_ERROR (-1)
-#define NUMBER_OF_REQUESTS 2
-
-
-typedef enum {
-    TASK1, TASK2, TASK3
-} task_t;
-
 
 typedef struct {
     /**
@@ -42,7 +33,7 @@ typedef struct {
      * temp minimum et maximum avant d'introduire un nouveau paquet
      * list demandes
      *
-    * */
+    **/
     unsigned int id;
     // TODO : ajouter le temps min et max
     time_t temps_min;
@@ -50,7 +41,6 @@ typedef struct {
     task_t *demandes;
 
 } client_t;
-
 
 typedef struct {
     /**
@@ -72,44 +62,6 @@ typedef struct {
     int serial_number;
     time_t delay;
 } demande_t;
-
-
-void *client_behavior(void *arg) {
-    /**
-     * 1. Créer un client
-     * 2. Envoyer une demande
-     * 3. Attendre la réponse
-     * 4. Attendre un temps aléatoire
-     * 5. Retour à l'étape 2
-    */
-    char *block = (char *) arg;
-    printf("Creating a client\n");
-
-    int sent = 0;
-    client_t client;
-    client.id = gettid();
-    client.temps_min = 1; // TODO : random
-    client.temps_max = 5; // TODO : random
-    int num_demandes = 2; // TODO : random ?
-
-    client.demandes = malloc(num_demandes * sizeof(task_t));
-    for (size_t i = 0; i < num_demandes; i++) {
-        // TODO : random
-        if (i < num_demandes / 2) client.demandes[i] = TASK1;
-        else client.demandes[i] = TASK2;
-    }
-
-    while (sent < NUMBER_OF_REQUESTS) {
-        // sleep(client.temps_min);
-        // TODO : envoyer une demande
-        printf("Writing some data\n");
-        write_to_block("I'm some data", block, 'a');
-        sent++;
-        // sleep(client.temps_max);
-    }
-
-    free(client.demandes);
-}
 
 
 void *guichet_behavior(void *arg) {
