@@ -28,8 +28,7 @@
 #define IPC_ERROR (-1)
 #define WRITING_SUCCESS 1
 #define WRITING_ERROR (-1)
-#define BLOCK_SIZE 12
-#define NUMBER_OF_REQUESTS 1
+#define NUMBER_OF_REQUESTS 2
 
 
 typedef enum {
@@ -104,9 +103,7 @@ void *client_behavior(void *arg) {
         // sleep(client.temps_min);
         // TODO : envoyer une demande
         printf("Writing some data\n");
-        write_to_block("aaa", block, 'a');
-        // strncpy(block, "I'm some data", BLOCK_SIZE);
-        // snprintf(block, BLOCK_SIZE, "I'm some data");
+        write_to_block("I'm some data", block, 'a');
         sent++;
         // sleep(client.temps_max);
     }

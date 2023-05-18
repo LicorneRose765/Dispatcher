@@ -13,7 +13,7 @@
 #define IPC_ERROR (-1)
 #define WRITING_SUCCESS 1
 #define WRITING_ERROR (-1)
-#define BLOCK_SIZE 12
+#define BLOCK_SIZE 4096
 
 static int get_block(char *filename, int size) {
     key_t ipc_key;
@@ -52,8 +52,7 @@ int destroy_block(char *filename) {
 }
 
 
-int write_to_block(char *str, char *block, char mode) {
-    int remaining_space;
+long write_to_block(char *str, char *block, char mode) {
     switch (mode) {
         // Write mode (overwrite everything)
         case 'w':
@@ -62,16 +61,17 @@ int write_to_block(char *str, char *block, char mode) {
                 perror("Not enough space in block to write string.");
                 return WRITING_ERROR;
             } else strncpy(block, str, BLOCK_SIZE);
-            return WRITING_SUCCESS;
+            return 0;
             // Append mode (add to end of existing data)
         case 'a':
             // Prevent buffer overflow
-            remaining_space = BLOCK_SIZE - strlen(block);
+            long initial_length = strlen(block);
+            long remaining_space = BLOCK_SIZE - initial_length;
             if (strlen(str) > remaining_space) {
                 perror("Not enough space remaining in block to write string.");
                 return WRITING_ERROR;
-            } else strncpy(block, str, BLOCK_SIZE);
-            return WRITING_SUCCESS;
+            } else strcat(block, str);
+            return initial_length;
         default:
             perror("Invalid mode.\n");
             return WRITING_ERROR;
