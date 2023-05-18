@@ -28,6 +28,7 @@ void *client_behavior(void *arg) {
      * V 4. Attendre un temps aléatoire
      * V 5. Retour à l'étape 2
     */
+
     srand(time(0));
     default_information_t *info = (default_information_t *) arg;
     pid_t dispatcher_id = info->dispatcher_id;
@@ -53,11 +54,18 @@ void *client_behavior(void *arg) {
     packet->number_of_request = num_demandes;
     packet->requests = demandes;
 
-    sleep(temps_min);
+
+    //sleep(temps_min);
     while (sent < NUMBER_OF_REQUESTS) {
         printf("[Client : %d] Sending request\n", id);
-        write_request(packet, block);
+        //write_request(packet, block);
         sent++;
+
+        // Send request
+        printf("[Client : %d] Sending request signal\n", id);
+        kill(dispatcher_id,  SIGRT_REQUEST);
+
+        // TODO : En fait le pid d'un thread c'est le pid du processus qui l'a créé :doomed:
 
         pause(); // TODO : gérer les signaux pour savoir quand on a reçu la réponse
         // Read response

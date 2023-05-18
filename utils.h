@@ -1,6 +1,6 @@
 // Stocke les constantes et les structures utiles pour le projet
 
-#define CLIENT_COUNT 1
+#define CLIENT_COUNT 2
 #define GUICHET_COUNT 4
 #define IPC_ERROR (-1)
 #define WRITING_SUCCESS 1
@@ -12,6 +12,10 @@
 #define MIN_TIME_REQUEST 60 // 1 minute
 #define MAX_TIME_BETWEEN_REQUESTS 600 // 10 minute
 #define MAX_TIME_BEFORE_REQUESTS 600 // 10 minutes
+
+// Signals
+#define SIGRT_REQUEST (SIGRTMIN + 1)
+#define SIGRT_RESPONSE (SIGRTMIN + 0)
 
 
 typedef enum {

@@ -48,6 +48,26 @@ void *guichet_behavior(void *arg) {
     guichet.type_demande = TASK1; // TODO : random
 }
 
+sigset_t mask;
+struct sigaction descriptor;
+union sigval value;
+
+
+// ========= Signal handling dispatcher ===========
+
+void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
+    printf("[Dispatcher] Received request from %d\n", info->si_pid);
+    // TODO : Traiter la demande
+
+}
+
+void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
+    printf("[Dispatcher] Received response from %d\n", info->si_pid);
+    // TODO : traiter la réponse
+}
+
+// ================== Dispatcher ==================
+
 int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
     /**
      * The dispatcher needs :
@@ -56,6 +76,30 @@ int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
      * 3. A list of requests in progress
      * ...
      */
+    sigfillset(&mask);
+    sigdelset(&mask, SIGINT); // I want to kill the dispatcher with CTRL+C
+
+    sigdelset(&mask, SIGRT_REQUEST);
+    sigdelset(&mask, SIGRT_RESPONSE);
+
+    sigprocmask(SIG_SETMASK, &mask, NULL);
+
+    memset(&descriptor, 0, sizeof(descriptor));
+    descriptor.sa_flags = SA_SIGINFO;
+
+    // On masque tous les signaux sauf SIGINT pendant la gestion des request/response
+
+    descriptor.sa_sigaction = DispatcherHandleRequest;
+    sigaction(SIGRT_REQUEST, &descriptor, NULL);
+
+    descriptor.sa_sigaction = DispatcherHandleResponse;
+    sigaction(SIGRT_RESPONSE, &descriptor, NULL);
+
+
+    while(1){
+        pause();
+    }
+
 
 
     return EXIT_SUCCESS;
