@@ -26,22 +26,6 @@
 * - MOREAU Cyril                                                              *
 ******************************************************************************/
 
-
-typedef struct {
-    /**
-     * Idd auprès du dispatcher
-     * temp minimum et maximum avant d'introduire un nouveau paquet
-     * list demandes
-     *
-    **/
-    unsigned int id;
-    // TODO : ajouter le temps min et max
-    time_t temps_min;
-    time_t temps_max;
-    task_t *demandes;
-
-} client_t;
-
 typedef struct {
     /**
      * Idd auprès du dispatcher.
@@ -50,18 +34,6 @@ typedef struct {
     unsigned int id;
     task_t type_demande;
 } guichet_t;
-
-
-typedef struct {
-    /**
-     * Idd du type de demande
-     * Serial Number de l'instance (désigné par le dispatcher)
-     * Delay : temp nécessaire pour traiter la demande (on va sleep le guichet avec ce delay)
-    */
-    task_t type_demande;
-    int serial_number;
-    time_t delay;
-} demande_t;
 
 
 void *guichet_behavior(void *arg) {
@@ -76,6 +48,20 @@ void *guichet_behavior(void *arg) {
     guichet.type_demande = TASK1; // TODO : random
 }
 
+int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
+    /**
+     * The dispatcher needs :
+     * 1. A list of guichets
+     * 2. A list of clients
+     * 3. A list of requests in progress
+     * ...
+     */
+
+
+    return EXIT_SUCCESS;
+
+}
+
 
 int main(int argc, char const *argv[]) {
     pthread_t clients[CLIENT_COUNT];
@@ -87,8 +73,13 @@ int main(int argc, char const *argv[]) {
 
     if (client == 0) {
         // Créer des thread avec tous les clients
+        default_information_t *info = malloc(sizeof(default_information_t));
+        info->block = block;
+        info->dispatcher_id = getppid();
+        info->block_size = BLOCK_SIZE; // TODO : à changer
+
         for (int i = 0; i < CLIENT_COUNT; i++) {
-            pthread_create(&clients[i], NULL, client_behavior, block);
+            pthread_create(&clients[i], NULL, client_behavior, info);
         }
 
         // Attendre la fin de tous les threads
@@ -101,26 +92,23 @@ int main(int argc, char const *argv[]) {
         if (guichet == 0) {
             // TODO : guichet behavior
             // Créer des thread avec tous les guichets
-            for (int i = 0; i < CLIENT_COUNT; i++) {
+            for (int i = 0; i < GUICHET_COUNT; i++) {
                 pthread_create(&guichets[i], NULL, guichet_behavior, block);
             }
 
             // Attendre la fin de tous les threads
-            for (int i = 0; i < CLIENT_COUNT; i++) {
+            for (int i = 0; i < GUICHET_COUNT; i++) {
                 pthread_join(guichets[i], NULL);
             }
             printf("All guichets are dead\n");
         } else if (guichet > 0) {
-            // TODO : Dispatcher behavior
-            printf("I'm going to read, wait...\n");
-            sleep(5);
-            printf("Reading: \"%s\"\n", block);
+            dispatcher_behavior(guichets, clients, block);
         } else {
-            perror("fork");
+            perror("guichet fork");
             return EXIT_FAILURE;
         }
     } else {
-        perror("fork");
+        perror("client fork");
         return EXIT_FAILURE;
     }
 

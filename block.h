@@ -24,7 +24,7 @@ static int get_block(char *filename, int size) {
 
 char *load_block(char *filename, int size) {
     int block_id = get_block(filename, size);
-    char *result;
+    char * result;
     // No block ID = error
     if (block_id == IPC_ERROR) return NULL;
     // Map the block into the process' address space
@@ -72,4 +72,29 @@ long write_to_block(char *str, char *block, char mode) {
             perror("Invalid mode.\n");
             return WRITING_ERROR;
     }
+}
+
+/**
+ * Read a request from a block.
+ * @param block The address of the block to read from.
+ * @return The request read from the block.
+ */
+packet_request_t read_request(char *block) {
+    // TODO : mutex & semaphore
+    packet_request_t request;
+    // Copy the block's content into the request
+    memcpy(&request, block, sizeof(packet_request_t));
+    return request;
+}
+
+/**
+ * Write a request to a block.
+ * @param request The request to write.
+ * @param block The address of the block to write to.
+ * @return
+ */
+int write_request(packet_request_t *request, char *block) {
+    // TODO : mutex & semaphore
+    memcpy(block, &request, sizeof(packet_request_t));
+    return 0;
 }

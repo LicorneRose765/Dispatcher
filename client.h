@@ -1,49 +1,74 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
 
-// Dans ce fichier, on aura les fonctions de communication entre les clients et le dispatcher
-// Un 'client' est un processus qui va générer un ensemble de thread correspondant à un ensemble
-// de client. Ce processus va communiquer avec le dispatcher via des messages IPC et des signaux.
+// Idée : Chaque client (thread) aura un identifiant unique qui est en fait l'endroit où il
+// va écrire ses demandes. Le dispatcher va lire les demandes de chaque client et les traiter/
 
-// Lorsque le thread d'un client veut envoyer une demande au dispatcher, il va envoyer un message IPC au dispatcher
-// a
+// Le numéro de série de la demande est donné par le dispatcher.
 
+
+// ========= Signal handling =========
+
+
+
+
+
+
+// ========= Client =========
 
 void *client_behavior(void *arg) {
     /**
-     * 1. Créer un client
-     * 2. Envoyer une demande
-     * 3. Attendre la réponse
-     * 4. Attendre un temps aléatoire
-     * 5. Retour à l'étape 2
+     * V 1. Créer un client
+     * V 2. Envoyer une demande
+     * X 3. Attendre la réponse
+     * V 4. Attendre un temps aléatoire
+     * V 5. Retour à l'étape 2
     */
-    char *block = (char *) arg;
+    srand(time(0));
+    default_information_t *info = (default_information_t *) arg;
+    pid_t dispatcher_id = info->dispatcher_id;
+    char *block = info->block;
+    int block_size = info->block_size;
+
     printf("Creating a client\n");
-    // TODO : randomize temps_min, temps_max and the number of requests
-    time_t temps_min;
-    time_t temps_max;
+
+    pid_t id = getpid();
+    time_t temps_min = (rand() % MAX_TIME_BEFORE_REQUESTS + 1);
+    time_t temps_max = (rand() % MAX_TIME_BETWEEN_REQUESTS + 1);
     task_t *demandes;
-    int num_demandes = 2;
+    int num_demandes = (rand() % 3) + 1;
 
     int sent = 0;
 
     demandes = malloc(num_demandes * sizeof(task_t));
     for (size_t i = 0; i < num_demandes; i++) {
-        // TODO : random
-        if (i < num_demandes / 2) demandes[i] = TASK1;
-        else demandes[i] = TASK2;
+        demandes[i] = (task_t) (rand() % 3);
     }
 
-    // sleep(client.temps_min);
+    packet_request_t *packet = malloc(sizeof(packet_request_t));
+    packet->number_of_request = num_demandes;
+    packet->requests = demandes;
+
+    sleep(temps_min);
     while (sent < NUMBER_OF_REQUESTS) {
-        // TODO : envoyer une demande
-        printf("Writing some data\n");
-        write_to_block("I'm some data", block, 'a');
+        printf("[Client : %d] Sending request\n", id);
+        write_request(packet, block);
         sent++;
-        // sleep(client.temps_max);
+
+        pause(); // TODO : gérer les signaux pour savoir quand on a reçu la réponse
+        // Read response
+        printf("[Client : %d] Reading response\n", id);
+        // TODO : read response
+        read_request(block);
+
+
+        sleep(temps_max);
     }
 
     free(demandes);
+    free(packet);
 }
