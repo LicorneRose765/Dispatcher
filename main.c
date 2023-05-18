@@ -115,7 +115,7 @@ void *client_behavior(void *arg) {
 }
 
 
-void *guichet_behavior() {
+void *guichet_behavior(void *arg) {
     /**
      * 1. Créer un guichet
      * 2. Attendre une demande
