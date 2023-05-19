@@ -4,6 +4,8 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
+#include "block.h"
+
 
 // En gros chaque thread aura un ID auprès du dispatcher et de son processus parent, cet
 // id va permettre au processus parent de mettre à disposition les données relatives à

@@ -44,6 +44,11 @@ void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
     // TODO : traiter la réponse
 }
 
+void timerSignalHandler(int signum) {
+    // Handle the timer signal
+    printf("Received timer signal\n");
+}
+
 // ================== Dispatcher ==================
 
 int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
@@ -129,6 +134,27 @@ int main(int argc, char const *argv[]) {
             }
             printf("All guichets are dead\n");
         } else if (guichet > 0) {
+            timer_t timer;
+            struct sigevent sev;
+            struct itimerspec its;
+
+            struct sigaction sa;
+            sa.sa_flags = SA_SIGINFO;
+            sa.sa_sigaction = timerSignalHandler;
+            sigemptyset(&sa.sa_mask);
+            sigaction(TIMER_SIGNAL, &sa, NULL);
+
+            sev.sigev_notify = SIGEV_SIGNAL;
+            sev.sigev_signo = TIMER_SIGNAL;
+            sev.sigev_value.sival_ptr = &timer;
+            timer_create(CLOCK_REALTIME, &sev, &timer);
+
+            its.it_interval.tv_sec = 1;
+            its.it_interval.tv_nsec = 0;
+            its.it_value.tv_sec = 1;
+            its.it_value.tv_nsec = 0;
+            timer_settime(timer, 0, &its, NULL);
+
             dispatcher_behavior(guichets, clients, NULL);
         } else {
             perror("guichet fork");
