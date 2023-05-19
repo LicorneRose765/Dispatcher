@@ -6,6 +6,9 @@
 
 #define TIMER_SIGNAL SIGRTMIN+2
 
+int oneSecondsIRLEqualsHowManySeconds = 3600;
+long dispatcherTime = 0;
+int dispatcherIsOpen = 0;
 
 void timerSignalHandler(int signum) {
     // Handle the timer signal
@@ -13,11 +16,14 @@ void timerSignalHandler(int signum) {
     struct tm *localTime = localtime(&currentTime);
     int hour = localTime->tm_hour;
 
-    if (hour >= 6 && hour < 18) {
-        printf("Current time is between 6 am and 6 pm.\n");
-    } else {
-        printf("Current time is outside the range of 6 am and 6 pm.\n");
+    dispatcherTime += oneSecondsIRLEqualsHowManySeconds;
+    if (dispatcherTime == 86400) {
+        dispatcherTime = 0;
     }
+    // If time is <= 6 am or > 6 pm
+    dispatcherIsOpen = dispatcherTime >= 21600 && dispatcherTime < 64800;
+    printf()
+    printf("%i\n", dispatcherIsOpen);
 }
 
 
