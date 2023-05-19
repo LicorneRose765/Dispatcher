@@ -12,7 +12,7 @@
 #include <string.h>
 
 #include "utils.h"
-#include "block.h"
+#include "memory.h"
 #include "client.h"
 #include "guichet.h"
 
@@ -90,21 +90,23 @@ int main(int argc, char const *argv[]) {
     pthread_t guichets[GUICHET_COUNT];
 
     pid_t client = fork();
-    char *block = load_block("application-shm", BLOCK_SIZE);
-    if (block == NULL) return EXIT_FAILURE;
+    if (initMemoryHandler() == IPC_ERROR) {
+        perror("Error while initializing memory handler");
+        exit(EXIT_FAILURE);
+    }
 
     if (client == 0) {
+        default_information_t info = {
+                .dispatcher_id = getppid()
+        };
         // Créer des thread avec tous les clients
-        default_information_t *info = malloc(sizeof(default_information_t));
-        info->block = block;
-        info->dispatcher_id = getppid();
-        info->block_size = BLOCK_SIZE; // TODO : à changer
-
-
-        // TODO : Maybe use a message queue for each thread to communicate with their parent ?
-
         for (int i = 0; i < CLIENT_COUNT; i++) {
-            pthread_create(&clients[i], NULL, client_behavior, info);
+            default_information_t *arg = malloc(sizeof(default_information_t));
+            memcpy(arg, &info, sizeof(default_information_t));
+            block_t *block = claimBlock();
+            arg->block = block;
+            arg->id = block->block_id;
+            pthread_create(&clients[i], NULL, client_behavior, arg);
         }
 
         // Attendre la fin de tous les threads
@@ -118,7 +120,7 @@ int main(int argc, char const *argv[]) {
             // TODO : guichet behavior
             // Créer des thread avec tous les guichets
             for (int i = 0; i < GUICHET_COUNT; i++) {
-                pthread_create(&guichets[i], NULL, guichet_behavior, block);
+                pthread_create(&guichets[i], NULL, guichet_behavior, NULL);
             }
 
             // Attendre la fin de tous les threads
@@ -127,7 +129,7 @@ int main(int argc, char const *argv[]) {
             }
             printf("All guichets are dead\n");
         } else if (guichet > 0) {
-            dispatcher_behavior(guichets, clients, block);
+            dispatcher_behavior(guichets, clients, NULL);
         } else {
             perror("guichet fork");
             return EXIT_FAILURE;
@@ -137,6 +139,6 @@ int main(int argc, char const *argv[]) {
         return EXIT_FAILURE;
     }
 
-    detach_block(block);
-    return destroy_block("application-shm");
+    destroyMemoryHandler();
+    return EXIT_SUCCESS;
 }

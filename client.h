@@ -5,10 +5,52 @@
 #include <sys/msg.h>
 
 
-// Idée : Chaque client (thread) aura un identifiant unique qui est en fait l'endroit où il
-// va écrire ses demandes. Le dispatcher va lire les demandes de chaque client et les traiter/
+// En gros chaque thread aura un ID auprès du dispatcher et de son processus parent, cet
+// id va permettre au processus parent de mettre à disposition les données relatives à
+// la demande du client dans un tableau de données partagées entre les threads.
 
-// Le numéro de série de la demande est donné par le dispatcher.
+// Un thread attendra qu'un semaphore soit disponible pour pouvoir accéder à son slot dans le tableau
+
+
+// Utiliser une structure de donnée spéciale pour stocker les données, comme ça chaque client n'a
+// accès qu'à sa structure personnelle. (Genre faire un système custom)
+
+// ========= Response message queue ========
+typedef struct {
+    int client_id;
+    int number_of_request;
+    task_t *requests;
+    sem_t *semaphore;
+} buffer;
+
+buffer *mkBuffer(int client_id) {
+    buffer *b = malloc(sizeof(buffer));
+    b->client_id = client_id;
+    sem_init(b->semaphore, 0, 0); // On initialise le semaphore à 0 parce que le buffer est vide.
+    return b;
+}
+
+void freeBuffer(buffer *b) {
+    free(b->requests);
+    sem_destroy(b->semaphore);
+    free(b);
+}
+
+int buffer_write(buffer *b, packet_request_t *packet) {
+    b->number_of_request = packet->number_of_request;
+    b->requests = packet->requests;
+    sem_post(b->semaphore);
+    return WRITING_SUCCESS;
+}
+
+// TODO : regarder si faudra pas utiliser un truc de packet spécial pour les réponses.
+
+int buffer_read(buffer *b, packet_request_t *packet) {
+    sem_wait(b->semaphore);
+    packet->number_of_request = b->number_of_request;
+    packet->requests = b->requests;
+    return WRITING_SUCCESS;
+}
 
 
 // ========= Signal handling =========
@@ -44,11 +86,10 @@ void *client_behavior(void *arg) {
     default_information_t *info = (default_information_t *) arg;
     pid_t dispatcher_id = info->dispatcher_id;
     char *block = info->block;
-    int block_size = info->block_size;
+    int id = info->id;
 
-    printf("Creating a client\n");
+    printf("Creating client %d\n", id);
 
-    pid_t id = gettid();
     time_t temps_min = (rand() % MAX_TIME_BEFORE_REQUESTS + 1);
     time_t temps_max = (rand() % MAX_TIME_BETWEEN_REQUESTS + 1);
     task_t *demandes;

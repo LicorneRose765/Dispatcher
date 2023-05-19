@@ -1,5 +1,6 @@
 // Stocke les constantes et les structures utiles pour le projet
 
+
 #define CLIENT_COUNT 2
 #define GUICHET_COUNT 4
 #define IPC_ERROR (-1)
@@ -23,9 +24,17 @@ typedef enum {
 } task_t;
 
 typedef struct {
+    unsigned int block_id;
+    sem_t *semaphore;
+
+    void* data; // TODO : à changer
+} block_t;
+
+
+typedef struct {
     pid_t dispatcher_id;
-    char *block;
-    int block_size; // Not sure of the block size
+    block_t *block;
+    unsigned int id;
 } default_information_t;
 
 
