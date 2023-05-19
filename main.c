@@ -38,8 +38,14 @@ long dispatcherTime = 0;
 // ========= Signal handling dispatcher ===========
 
 void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
-    printf("[Dispatcher] Received request from client %d\n", info->si_value.sival_int);
     // TODO : Traiter la demande
+    block_t *block = getBlock(info->si_value.sival_int);
+    char *message = dispatcherGettingClientRequest(block);
+    printf("[Dispatcher] Received request from client %d with message : %s\n", info->si_value.sival_int, message);
+
+    // TODO : réponse
+    message = "Hello from dispatcher";
+    dispatcherWritingResponse(block, message);
 }
 
 void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
@@ -47,7 +53,7 @@ void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
     // TODO : traiter la réponse
 }
 
-void timerSignalHandler(int signum) {
+void timerSignalHandler(int signum, siginfo_t *info, void *context) {
     // Handle the timer signal
     printf("Received timer signal\n");
     dispatcherTime += oneSecondsIRLEqualsHowManySeconds;
@@ -93,11 +99,9 @@ int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
     sigaction(SIGRT_RESPONSE, &descriptor, NULL);
 
 
-    while(1){
+    while(1) {
         pause();
     }
-
-
 
     return EXIT_SUCCESS;
 
@@ -108,23 +112,20 @@ int main(int argc, char const *argv[]) {
     pthread_t clients[CLIENT_COUNT];
     pthread_t guichets[GUICHET_COUNT];
 
-    pid_t client = fork();
     if (initMemoryHandler() == IPC_ERROR) {
         perror("Error while initializing memory handler");
         exit(EXIT_FAILURE);
     }
 
+    pid_t client = fork();
     if (client == 0) {
-        default_information_t info = {
-                .dispatcher_id = getppid()
-        };
         // Créer des thread avec tous les clients
         for (int i = 0; i < CLIENT_COUNT; i++) {
             default_information_t *arg = malloc(sizeof(default_information_t));
-            memcpy(arg, &info, sizeof(default_information_t));
             block_t *block = claimBlock();
             arg->block = block;
             arg->id = block->block_id;
+            arg->dispatcher_id = getppid();
             pthread_create(&clients[i], NULL, client_behavior, arg);
         }
 
@@ -132,7 +133,6 @@ int main(int argc, char const *argv[]) {
         for (int i = 0; i < CLIENT_COUNT; i++) {
             pthread_join(clients[i], NULL);
         }
-        printf("All clients are dead\n");
     } else if (client > 0) {
         pid_t guichet = fork();
         if (guichet == 0) {
@@ -170,6 +170,7 @@ int main(int argc, char const *argv[]) {
             timer_settime(timer, 0, &its, NULL);
 
             dispatcher_behavior(guichets, clients, NULL);
+            destroyMemoryHandler();
         } else {
             perror("guichet fork");
             return EXIT_FAILURE;
@@ -178,7 +179,5 @@ int main(int argc, char const *argv[]) {
         perror("client fork");
         return EXIT_FAILURE;
     }
-
-    destroyMemoryHandler();
     return EXIT_SUCCESS;
 }

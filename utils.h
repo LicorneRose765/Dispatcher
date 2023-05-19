@@ -8,19 +8,23 @@
 #define WRITING_SUCCESS 1
 #define WRITING_ERROR (-1)
 
+// Semaphore values
+#define SEM_PRIVATE 0
+#define SEM_PUBLIC 1
+
 // Params of the application
 #define CLIENT_COUNT 2
-#define GUICHET_COUNT 4
-#define NUMBER_OF_REQUESTS 2
+#define GUICHET_COUNT 1
+#define NUMBER_OF_REQUESTS 1
 #define MAX_TIME_REQUEST 600 // 10 minutes
 #define MIN_TIME_REQUEST 60 // 1 minute
-#define MAX_TIME_BETWEEN_REQUESTS 600 // 10 minute
-#define MAX_TIME_BEFORE_REQUESTS 600 // 10 minutes
+#define MAX_TIME_BETWEEN_REQUESTS 2
+#define MAX_TIME_BEFORE_REQUESTS 2
 
 // Signals
 #define SIGRT_REQUEST (SIGRTMIN + 1)
 #define SIGRT_RESPONSE (SIGRTMIN + 0)
-#define TIMER_SIGNAL (SIGRTMIN + 2)
+#define TIMER_SIGNAL SIGRTMAX
 
 
 typedef enum {
@@ -29,7 +33,7 @@ typedef enum {
 
 typedef struct {
     unsigned int block_id;
-    sem_t *semaphore;
+    sem_t semaphore;
 
     void* data; // TODO : à changer
 } block_t;

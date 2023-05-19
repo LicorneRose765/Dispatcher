@@ -22,7 +22,7 @@ void *guichet_behavior(void *arg) {
 
     default_information_t *info = (default_information_t *) arg;
     pid_t dispatcher_id = info->dispatcher_id;
-    char *block = info->block;
+    block_t *block = info->block;
     // int block_size = info->block_size;
 
     printf("Creating a guichet\n");
