@@ -51,8 +51,8 @@ void timerSignalHandler(int signum) {
     // Handle the timer signal
     printf("Received timer signal\n");
     dispatcherTime += oneSecondsIRLEqualsHowManySeconds;
-    if (dispatcherTime == 86400) {
-        dispatcherTime = 0;
+    if (dispatcherTime >= 86400) {
+        dispatcherTime = dispatcherTime % 4600;
     }
     // If time is <= 6 am or > 6 pm
     dispatcherIsOpen = dispatcherTime >= 21600 && dispatcherTime < 64800;

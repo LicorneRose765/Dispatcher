@@ -17,8 +17,8 @@ void timerSignalHandler(int signum) {
     int hour = localTime->tm_hour;
 
     dispatcherTime += oneSecondsIRLEqualsHowManySeconds;
-    if (dispatcherTime == 86400) {
-        dispatcherTime = 0;
+    if (dispatcherTime >= 86400) {
+        dispatcherTime = dispatcherTime % 4600;
     }
     // If time is <= 6 am or > 6 pm
     dispatcherIsOpen = dispatcherTime >= 21600 && dispatcherTime < 64800;
