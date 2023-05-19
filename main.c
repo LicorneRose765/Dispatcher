@@ -31,6 +31,7 @@ sigset_t mask;
 struct sigaction descriptor;
 union sigval value;
 
+int dispatcherIsOpen = 0;
 
 // ========= Signal handling dispatcher ===========
 
@@ -47,6 +48,11 @@ void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
 void timerSignalHandler(int signum) {
     // Handle the timer signal
     printf("Received timer signal\n");
+    // Handle the timer signal
+    time_t currentTime = time(NULL);
+    struct tm *localTime = localtime(&currentTime);
+    int hour = localTime->tm_hour;
+    dispatcherIsOpen = hour >= 6 && hour < 18;
 }
 
 // ================== Dispatcher ==================

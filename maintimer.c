@@ -7,7 +7,18 @@
 #define TIMER_SIGNAL SIGRTMIN+2
 
 
+void timerSignalHandler(int signum) {
+    // Handle the timer signal
+    time_t currentTime = time(NULL);
+    struct tm *localTime = localtime(&currentTime);
+    int hour = localTime->tm_hour;
 
+    if (hour >= 6 && hour < 18) {
+        printf("Current time is between 6 am and 6 pm.\n");
+    } else {
+        printf("Current time is outside the range of 6 am and 6 pm.\n");
+    }
+}
 
 
 int main() {
