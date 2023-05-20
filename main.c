@@ -38,11 +38,13 @@ long dispatcherTime = 0;
 
 
 // ========= Dispatcher buffers ==========
+// Stores the id of the guiche, guichet_id[0] deals with the task 0, guichet_id[1] deals with the task 1, etc.
+unsigned int guichet_i[GUICHET_COUNT];
 
 
 
 // ========= Dispatcher utility functions =========
-void DispatcherDealsWithRequest(request_group_t *request, unsigned int client_id) {
+void DispatcherDealsWithRequest(request_t *request, unsigned int client_id) {
     printf("[Dispatcher] Dealing with request from client %d\n", client_id);
     // TODO : Traiter la demande
 }
@@ -53,14 +55,17 @@ void DispatcherDealsWithRequest(request_group_t *request, unsigned int client_id
 void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
     // TODO : Traiter la demande
     block_t *block = getBlock(info->si_value.sival_int);
-    request_group_t *packet = dispatcherGetData(block);
-    printf("oui\n");
-    printf("client id : %d\n", packet->client_id);
-    /*
-    printf("[Dispatcher] Received request from client %d on block %d with %d task : ",
-           info->si_value.sival_int, packet->client_id ,packet->num_requests);
-    printf("\n");
-     */
+    printf("[Dispatcher] Received request from client %d on block %d\n", info->si_value.sival_int, block->block_id);
+    unsigned int data_size = block->data_size;
+    request_t * request = dispatcherGetData(block);
+    printf("[DISPATCHER] Received %d task from client %d \n The tasks are : \n", data_size, info->si_value.sival_int);
+    for(int i=0; i<data_size; i++){
+        printf("\t type : %d - delay : %ld\n", request[i].type, request[i].delay);
+        request[i].delay += 1;
+    }
+
+    dispatcherWritingResponse(block, data_size, request);
+
     // TODO : envoyer la requête à un guichet
 }
 
@@ -129,6 +134,8 @@ int main(int argc, char const *argv[]) {
     pthread_t clients[CLIENT_COUNT];
     pthread_t guichets[GUICHET_COUNT];
 
+    srand(time(NULL));
+
     if (initMemoryHandler() == IPC_ERROR) {
         perror("Error while initializing memory handler");
         exit(EXIT_FAILURE);
@@ -177,7 +184,7 @@ int main(int argc, char const *argv[]) {
             struct sigaction sa;
             sa.sa_flags = SA_SIGINFO;
             sa.sa_sigaction = timerSignalHandler;
-            sigemptyset(&sa.sa_mask);
+            sigdelset(&sa.sa_mask, TIMER_SIGNAL);
             sigaction(TIMER_SIGNAL, &sa, NULL);
 
             sev.sigev_notify = SIGEV_SIGNAL;

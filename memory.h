@@ -6,8 +6,15 @@
  *      - A mutex to protect the claim of blocks
  *      - An array of pointers to blocks
  *
- * We store pointers to blocks in the share memory to reduce the size of the shared memory
- * (it still uses memory but not the shared one ;) ).
+ * The blocks are composed of :
+ *     - A block id (the index in the array)
+ *     - A semaphore to wait for the block to be filled
+ *     - Data to store
+ *
+ * Currently, the data stored in the blocks are the requests from the clients.
+ * Data is composed of :
+ *    - The type of the request
+ *    - The delay to deal the request
  */
 
 typedef struct {
@@ -24,10 +31,10 @@ memory_handler_t *memory_handler;
  * @param id The id of the block (the index in the array)
  * @return The block initialized
  */
-block_t *initBlock(unsigned int id) {
-    block_t *block = malloc(sizeof(block_t));
-    block->block_id = id;
-    if (sem_init(&block->semaphore, SEM_PUBLIC, 0) != 0) {
+block_t initBlock(unsigned int id) {
+    block_t block;
+    block.block_id = id;
+    if (sem_init(&block.semaphore, SEM_PUBLIC, 0) != 0) {
         perror("Error while initializing semaphore");
         exit(EXIT_FAILURE);
     }
@@ -68,7 +75,7 @@ int initMemoryHandler() {
 
     block_t *mem = (block_t *) (shmaddr + sizeof(unsigned int) * 2 + sizeof(pthread_mutex_t) + sizeof(block_t *));
     for (int i=0; i<CLIENT_COUNT+GUICHET_COUNT; i++) {
-        mem[i] = *initBlock(i);
+        mem[i] = initBlock(i);
     }
 
     memory_handler->blocks = mem;
@@ -113,27 +120,16 @@ block_t *getBlock(unsigned int id) {
     return &memory_handler->blocks[id];
 }
 
-
-/**
- * The client wait for a response from the dispatcher. After the dispatcher pushed a response,
- * the client can get the response.
- * @param block The block of the client
- * @return The response of the dispatcher
- */
-request_group_t *clientWaitingResponse(block_t *block) {
-    sem_wait(&block->semaphore);
-    return block->data;
-}
-
 /**
  * The client write a request to the dispatcher and push it to his block.
  * @param block The block of the client
  * @param data The data to send to the dispatcher
  */
-void clientWritingRequest(block_t *block, request_group_t *data) {
-    printf("Client %d writing request with %d task\n", block->block_id, data->num_requests);
-    printf("[TEST] first task : %d with delay %ld\n", data->requests[0].type, data->requests[0].delay);
-    block->data = data;
+void  clientWritingRequest(block_t *block, unsigned int request_size, request_t *data) {
+    block-> data_size = request_size;
+    for(int i=0; i< request_size; i++) {
+        block->data[i] = data[i];
+    }
 }
 
 /**
@@ -142,37 +138,29 @@ void clientWritingRequest(block_t *block, request_group_t *data) {
  * @param block The block to get the data from
  * @return The data stored on the block (can be either a request or a response)
  */
-request_group_t *dispatcherGetData(block_t *block) {
+request_t *dispatcherGetData(block_t *block) {
     return block->data;
 }
 
-
 /**
- * The dispatcher push a response to the client block and post the semaphore to notify the client.
+ * The dispatcher write a response to the client and push it to his block.
  * @param block The block of the client
  * @param data The data to send to the client
- * @return
  */
-void dispatcherWritingResponse(block_t *block, request_group_t *data) {
-    block->data = data;
+void dispatcherWritingResponse(block_t *block, unsigned int response_size, request_t *data) {
+    block->data_size = response_size;
+    for (int i = 0; i < response_size; i++) {
+        block->data[i] = data[i];
+    }
     sem_post(&block->semaphore);
 }
 
 /**
- * The guichet waits for the dispatcher to push a request to his block.
- * @param block The block of the guichet
- * @return The request sent by the dispatcher
+ * The client wait for the dispatcher to write a response to his block.
+ * @param block The block of the client
+ * @return The list of responses
  */
-request_group_t *guichetWaitingRequest(block_t *block) {
+request_t *clientWaitData(block_t *block) {
     sem_wait(&block->semaphore);
     return block->data;
-}
-
-/**
- * The guichet writes the response to
- * @param block
- * @param data
- */
-void guichetWritingResponse(block_t *block, request_group_t *data) {
-    block->data = data;
 }

@@ -14,7 +14,7 @@
 
 // Params of the application
 #define CLIENT_COUNT 1
-#define GUICHET_COUNT 1 /* /!\ must be equal to the number of possible tasks */
+#define GUICHET_COUNT 5 /* /!\ must be equal to the number of possible tasks */
 #define MAX_PACKET_SEND 5
 
 #define MAX_DATA_SIZE 5
@@ -33,27 +33,18 @@
 #define TIMER_SIGNAL SIGRTMAX
 
 
-typedef enum {
-    TASK1, TASK2, TASK3
-} task_t;
+typedef unsigned int task_t;
 
 typedef struct {
     task_t type;
-    unsigned int serial_number; // TODO : Client id ?
     time_t delay;
 } request_t;
 
 typedef struct {
-    unsigned int client_id;
-    unsigned int num_requests;
-    request_t *requests; // On a 1 tâche par guichet
-} request_group_t;
-
-typedef struct {
     unsigned int block_id;
     sem_t semaphore;
-
-     request_group_t *data; // TODO: à changer
+    unsigned int data_size;
+    request_t data[GUICHET_COUNT];
 } block_t;
 
 typedef struct {

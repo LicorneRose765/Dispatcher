@@ -27,7 +27,7 @@ void *guichet_behavior(void *arg) {
     unsigned int id = info->id;
     task_t task_type = info->task;
 
-    printf("[Guichet block id : %d] Creating a guichet with task : %d\n",id ,task_type);
+    // printf("[Guichet block id : %d] Creating a guichet with task : %d\n",id ,task_type);
 
     while (1) {
         // char *request = (char *) guichetWaitingRequest(block);
