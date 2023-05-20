@@ -1,11 +1,20 @@
-
+/*
+ * This file contains all the functions needed to manage the shared memory.
+ * The shared memory consist of a memory handler which contains :
+ *      - The maximum size of the memory (the number of blocks)
+ *      - The current number of block claimed
+ *      - A mutex to protect the claim of blocks
+ *      - An array of pointers to blocks
+ *
+ * We store pointers to blocks in the share memory to reduce the size of the shared memory
+ * (it still uses memory but not the shared one ;) ).
+ */
 
 typedef struct {
-    block_t *blocks;
     unsigned int max_size;
     unsigned int current_size;
-
     pthread_mutex_t mutex;
+    block_t *blocks;
 } memory_handler_t;
 
 memory_handler_t *memory_handler;
@@ -17,8 +26,6 @@ memory_handler_t *memory_handler;
  */
 block_t *initBlock(unsigned int id) {
     block_t *block = malloc(sizeof(block_t));
-    char *data = malloc(sizeof(char) * 4096);
-    block->data = data;
     block->block_id = id;
     if (sem_init(&block->semaphore, SEM_PUBLIC, 0) != 0) {
         perror("Error while initializing semaphore");
@@ -43,8 +50,8 @@ int initMemoryHandler() {
         return IPC_ERROR;
     }
     // Use the key to create/get a block ID associated with the key
-
-    int size = CLIENT_COUNT* sizeof(block_t) + GUICHET_COUNT * sizeof(block_t);
+    int size = sizeof(unsigned int) * 2 + sizeof(pthread_mutex_t) + sizeof(block_t *) * (CLIENT_COUNT+GUICHET_COUNT);
+    printf("Size of the shared memory : %d with key = %u\n", size, ipc_key);
     int shmid = shmget(ipc_key, size, IPC_CREAT | 0600);
     if (shmid == IPC_ERROR) {
         perror("shmget");
@@ -54,17 +61,18 @@ int initMemoryHandler() {
     if (shmaddr == (void *) IPC_ERROR) return IPC_ERROR;
 
     // The shared memory is a list of blocks
-    block_t *mem = (block_t *) shmaddr;
+    memory_handler = (memory_handler_t *) shmaddr;
+    memory_handler->max_size = CLIENT_COUNT+GUICHET_COUNT;
+    memory_handler->current_size = 0;
+    pthread_mutex_init(&memory_handler->mutex, NULL);
+
+    block_t *mem = (block_t *) (shmaddr + sizeof(unsigned int) * 2 + sizeof(pthread_mutex_t) + sizeof(block_t *));
     for (int i=0; i<CLIENT_COUNT+GUICHET_COUNT; i++) {
         mem[i] = *initBlock(i);
     }
 
-    // The memory handler global variable is used to deal with blocks.
-    memory_handler = malloc(sizeof(memory_handler_t));
     memory_handler->blocks = mem;
-    memory_handler->max_size = CLIENT_COUNT+GUICHET_COUNT;
-    memory_handler->current_size = 0;
-    pthread_mutex_init(&memory_handler->mutex, NULL);
+
     return EXIT_SUCCESS;
 }
 
@@ -74,7 +82,7 @@ int initMemoryHandler() {
  */
 block_t *claimBlock(){
     pthread_mutex_lock(&memory_handler->mutex);
-    if (memory_handler->current_size == memory_handler->max_size) {
+    if (memory_handler->current_size == memory_handler->max_size+1) {
         pthread_mutex_unlock(&memory_handler->mutex);
         return NULL;
     }
@@ -112,7 +120,7 @@ block_t *getBlock(unsigned int id) {
  * @param block The block of the client
  * @return The response of the dispatcher
  */
-void *clientWaitingResponse(block_t *block) {
+request_group_t *clientWaitingResponse(block_t *block) {
     sem_wait(&block->semaphore);
     return block->data;
 }
@@ -123,16 +131,18 @@ void *clientWaitingResponse(block_t *block) {
  * @param data The data to send to the dispatcher
  */
 void clientWritingRequest(block_t *block, request_group_t *data) {
+    printf("Client %d writing request with %d task\n", block->block_id, data->num_requests);
+    printf("[TEST] first task : %d with delay %ld\n", data->requests[0].type, data->requests[0].delay);
     block->data = data;
 }
 
 /**
- * Gets the request of the client from the block.
- * The dispatcher needs to call this function after he received a request signal from the client.
- * @param block The block of the client
- * @return The request of the client
+ * Gets the data stored on the block.
+ * The dispatcher needs to call this function after he received a signal from the client/guichet.
+ * @param block The block to get the data from
+ * @return The data stored on the block (can be either a request or a response)
  */
-void *dispatcherGettingClientRequest(block_t *block) {
+request_group_t *dispatcherGetData(block_t *block) {
     return block->data;
 }
 
@@ -143,7 +153,26 @@ void *dispatcherGettingClientRequest(block_t *block) {
  * @param data The data to send to the client
  * @return
  */
-void dispatcherWritingResponse(block_t *block, void *data) {
+void dispatcherWritingResponse(block_t *block, request_group_t *data) {
     block->data = data;
     sem_post(&block->semaphore);
+}
+
+/**
+ * The guichet waits for the dispatcher to push a request to his block.
+ * @param block The block of the guichet
+ * @return The request sent by the dispatcher
+ */
+request_group_t *guichetWaitingRequest(block_t *block) {
+    sem_wait(&block->semaphore);
+    return block->data;
+}
+
+/**
+ * The guichet writes the response to
+ * @param block
+ * @param data
+ */
+void guichetWritingResponse(block_t *block, request_group_t *data) {
+    block->data = data;
 }

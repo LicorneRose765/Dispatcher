@@ -53,12 +53,15 @@ void DispatcherDealsWithRequest(request_group_t *request, unsigned int client_id
 void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
     // TODO : Traiter la demande
     block_t *block = getBlock(info->si_value.sival_int);
-    char *message = dispatcherGettingClientRequest(block);
-    printf("[Dispatcher] Received request from client %d with message : %s\n", info->si_value.sival_int, message);
-
-    // TODO : réponse
-    message = "Hello from dispatcher";
-    dispatcherWritingResponse(block, message);
+    request_group_t *packet = dispatcherGetData(block);
+    printf("oui\n");
+    printf("client id : %d\n", packet->client_id);
+    /*
+    printf("[Dispatcher] Received request from client %d on block %d with %d task : ",
+           info->si_value.sival_int, packet->client_id ,packet->num_requests);
+    printf("\n");
+     */
+    // TODO : envoyer la requête à un guichet
 }
 
 void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
@@ -135,7 +138,7 @@ int main(int argc, char const *argv[]) {
     if (client == 0) {
         // Créer des thread avec tous les clients
         for (int i = 0; i < CLIENT_COUNT; i++) {
-            default_information_t *arg = malloc(sizeof(default_information_t));
+            default_information_client_t *arg = malloc(sizeof(default_information_client_t));
             block_t *block = claimBlock();
             arg->block = block;
             arg->id = block->block_id;
@@ -150,10 +153,15 @@ int main(int argc, char const *argv[]) {
     } else if (client > 0) {
         pid_t guichet = fork();
         if (guichet == 0) {
-            // TODO : guichet behavior
             // Créer des thread avec tous les guichets
             for (int i = 0; i < GUICHET_COUNT; i++) {
-                pthread_create(&guichets[i], NULL, guichet_behavior, NULL);
+                default_information_guichet_t *arg = malloc(sizeof(default_information_guichet_t ));
+                block_t *block = claimBlock();
+                arg->block = block;
+                arg->id = block->block_id;
+                arg->dispatcher_id = getppid();
+                arg->task = (task_t) i;
+                pthread_create(&guichets[i], NULL, guichet_behavior, arg);
             }
 
             // Attendre la fin de tous les threads
