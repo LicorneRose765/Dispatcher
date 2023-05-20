@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "utils.h"
+#include "fifo.h"
 #include "memory.h"
 #include "client.h"
 #include "guichet.h"
@@ -34,6 +35,18 @@ union sigval value;
 int dispatcherIsOpen = 0;
 int oneSecondsIRLEqualsHowManySeconds = 60;
 long dispatcherTime = 0;
+
+
+// ========= Dispatcher buffers ==========
+
+
+
+// ========= Dispatcher utility functions =========
+void DispatcherDealsWithRequest(packet_request_t *request, unsigned int client_id) {
+    printf("[Dispatcher] Dealing with request from client %d\n", client_id);
+    // TODO : Traiter la demande
+}
+
 
 // ========= Signal handling dispatcher ===========
 
@@ -81,6 +94,7 @@ int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
      */
     sigfillset(&mask);
     sigdelset(&mask, SIGINT); // I want to kill the dispatcher with CTRL+C
+    sigdelset(&mask, SIGKILL);
 
     sigdelset(&mask, SIGRT_REQUEST);
     sigdelset(&mask, SIGRT_RESPONSE);
