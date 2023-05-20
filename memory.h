@@ -122,7 +122,7 @@ void *clientWaitingResponse(block_t *block) {
  * @param block The block of the client
  * @param data The data to send to the dispatcher
  */
-void clientWritingRequest(block_t *block, void *data) {
+void clientWritingRequest(block_t *block, request_group_t *data) {
     block->data = data;
 }
 

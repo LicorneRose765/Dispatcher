@@ -13,7 +13,7 @@
 #define SEM_PUBLIC 1
 
 // Params of the application
-#define CLIENT_COUNT 2
+#define CLIENT_COUNT 1
 #define GUICHET_COUNT 1
 #define NUMBER_OF_REQUESTS 1
 #define MAX_TIME_REQUEST 600 // 10 minutes
@@ -38,7 +38,6 @@ typedef struct {
     void* data; // TODO : à changer
 } block_t;
 
-
 typedef struct {
     pid_t dispatcher_id;
     block_t *block;
@@ -46,14 +45,14 @@ typedef struct {
 } default_information_t;
 
 typedef struct {
-    unsigned int client_id;
-    int number_of_request;
-    task_t *requests;
-} packet_request_t;
-
-typedef struct {
-    task_t task;
+    task_t type;
     int serial_number;
     time_t delay;
 } request_t;
+
+typedef struct {
+    unsigned int client_id;
+    request_t* requests[5];
+    int num_requests;
+} request_group_t;
 

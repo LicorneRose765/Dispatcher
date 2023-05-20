@@ -42,7 +42,7 @@ long dispatcherTime = 0;
 
 
 // ========= Dispatcher utility functions =========
-void DispatcherDealsWithRequest(packet_request_t *request, unsigned int client_id) {
+void DispatcherDealsWithRequest(request_group_t *request, unsigned int client_id) {
     printf("[Dispatcher] Dealing with request from client %d\n", client_id);
     // TODO : Traiter la demande
 }

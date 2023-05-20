@@ -79,11 +79,11 @@ long write_to_block(char *str, char *block, char mode) {
  * @param block The address of the block to read from.
  * @return The request read from the block.
  */
-packet_request_t read_request(char *block) {
+request_group_t read_request(char *block) {
     // TODO : mutex & semaphore
-    packet_request_t request;
+    request_group_t request;
     // Copy the block's content into the request
-    memcpy(&request, block, sizeof(packet_request_t));
+    memcpy(&request, block, sizeof(request_group_t));
     return request;
 }
 
@@ -93,8 +93,8 @@ packet_request_t read_request(char *block) {
  * @param block The address of the block to write to.
  * @return
  */
-int write_request(packet_request_t *request, char *block) {
+int write_request(request_group_t *request, char *block) {
     // TODO : mutex & semaphore
-    memcpy(block, &request, sizeof(packet_request_t));
+    memcpy(block, &request, sizeof(request_group_t));
     return 0;
 }

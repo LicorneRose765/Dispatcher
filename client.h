@@ -29,28 +29,49 @@ void *client_behavior(void *arg) {
 
     time_t temps_min = (rand() % MAX_TIME_BEFORE_REQUESTS + 1);
     time_t temps_max = (rand() % MAX_TIME_BETWEEN_REQUESTS + 1);
-    task_t *demandes;
-    int num_demandes = (rand() % 3) + 1;
-
-    int sent = 0;
-
-    demandes = malloc(num_demandes * sizeof(task_t));
-    for (size_t i = 0; i < num_demandes; i++) {
-        demandes[i] = (task_t) (rand() % 3);
-    }
-
-    packet_request_t *packet = malloc(sizeof(packet_request_t));
-    packet->client_id = id;
-    packet->number_of_request = num_demandes;
-    packet->requests = demandes;
+    // task_t *demandes;
+    int num_requests = (rand() % 5) + 1; // TODO : ça ou bien le #define NUMBER_OF_REQUESTS ?
 
     // Used to share the client id in the signal
     union sigval value;
     value.sival_int = id;
 
+    // Generate requests
+    srand(time(NULL));
+    request_group_t packet;
+    printf("created packet, will contain %i requests\n", num_requests);
 
+    for (int i = 0; i < num_requests; i++) {
+        task_t random_task = (task_t) rand() % 3;
+        time_t random_delay = rand() % 10 + 1;
+        printf("created random task and delay\n");
+
+        request_t current_request = {random_task, i, random_delay};
+        packet.requests[i] = &current_request;
+        printf("assigned packet[%d] to a request\n", i);
+    }
+
+    // Put the requests in a packet
+    packet.client_id = 1; // TODO : wer client id
+    packet.num_requests = num_requests;
+    printf("packet is built on the house\n");
+
+    // Write the packet in the shm
+    printf("[Client : %d] Sending requests packet\n", id);
+    clientWritingRequest(block, &packet);
+    printf("[Client : %d] Sending request signal\n", id);
+    sigqueue(dispatcher_id, SIGRT_REQUEST, value);
+
+    char *data = clientWaitingResponse(block);
+    // Read response
+    printf("[Client : %d] Reading response = %s\n", id, data);
+
+    sleep(temps_max);
+
+    /*
     //sleep(temps_min);
     while (sent < NUMBER_OF_REQUESTS) {
+
         printf("[Client : %d] Sending request\n", id);
         char *request = "Hello i'm a request";
         clientWritingRequest(block, request);
@@ -66,7 +87,8 @@ void *client_behavior(void *arg) {
 
         sleep(temps_max);
     }
+     */
 
-    free(demandes);
-    free(packet);
+    // free(demandes);
+    // free(packet); // TODO : why not working
 }
