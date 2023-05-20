@@ -17,8 +17,6 @@
 #define GUICHET_COUNT 1 /* /!\ must be equal to the number of possible tasks */
 #define MAX_PACKET_SEND 5
 
-#define MAX_DATA_SIZE 5
-#define MAX_BLOCK_SIZE (2 * sizeof(int) + (GUICHET_COUNT * sizeof(request_t)))
 // On a 2 entier dans le bloc + un tableau de maximum GUICHET_COUNT requêtes
 // TODO : peut-être changer ici (enlever le commentaire sinon)
 
@@ -28,9 +26,16 @@
 #define MAX_TIME_BEFORE_REQUESTS 2
 
 // Signals
-#define SIGRT_REQUEST (SIGRTMIN + 1)
-#define SIGRT_RESPONSE (SIGRTMIN + 0)
+#define SIGRT_REQUEST (SIGRTMIN + 0)
+#define SIGRT_RESPONSE (SIGRTMIN + 1)
 #define TIMER_SIGNAL SIGRTMAX
+
+// Guichet states
+#define FREE 0
+#define WORKING 1
+
+// TIMER
+int oneSecondsIRLEqualsHowManySeconds = 60;
 
 
 typedef unsigned int task_t;

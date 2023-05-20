@@ -34,7 +34,6 @@ struct sigaction descriptor;
 union sigval value;
 
 int dispatcherIsOpen = 0;
-int oneSecondsIRLEqualsHowManySeconds = 60;
 long dispatcherTime = 0;
 
 pid_t clientPID;
@@ -42,26 +41,13 @@ pid_t guichetPID;
 
 
 // ========= Dispatcher buffers ==========
-// Stores the id of the guiche, guichet_id[0] deals with the task 0, guichet_id[1] deals with the task 1, etc.
-unsigned int guichet_i[GUICHET_COUNT];
-
+// TODO : create here the queues for the dispatcher
 
 
 // ========= Dispatcher utility functions =========
-void DispatcherDealsWithRequest(client_packet_t *request, unsigned int client_id) {
-    printf("[Dispatcher] Dealing with request from client %d\n", client_id);
-    // TODO : Traiter la demande
-}
-
-
-// ========= Signal handling dispatcher ===========
-
-void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
-    client_block_t *block = client_getBlock(info->si_value.sival_int);
-    unsigned int data_size = block->data_size;
-    client_packet_t * request = dispatcherGetDataFromClient(block);
-    printf("[DISPATCHER] Received %d task from client %d \n The tasks are : \n", data_size, info->si_value.sival_int);
-    for(int i=0; i<data_size; i++){
+void DispatcherDealsWithClientPacket(unsigned int packet_size, client_packet_t *request, unsigned int client_id) {
+    printf("[DISPATCHER] Received %d task from client %d \n The tasks are : \n", packet_size, client_id);
+    for(int i=0; i<packet_size; i++){
         printf("\t type : %d - delay : %ld\n", request[i].type, request[i].delay);
     }
 
@@ -70,10 +56,30 @@ void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
 
     guichet_packet_t work = {
             .delay = request->delay,
-            .serial_number = info->si_value.sival_int
+            .serial_number = client_id
     };
     printf("[DISPATCHER] Sending work to guichet %d\n", guichet);
     guichet_dispatcherSendsWork(guichet_block, work);
+}
+
+void DispatcherDealsWithGuichetPacket(guichet_packet_t packet, unsigned int guichet_id) {
+    // Send the response to the client
+    client_block_t *client_block = client_getBlock(packet.serial_number);
+    client_packet_t* response = malloc(sizeof(client_packet_t));
+    response[0].type = guichet_id;
+    response[0].delay = packet.delay;
+
+    printf("[DISPATCHER] Sending response to client %d\n", packet.serial_number);
+    dispatcherWritingResponseForClient(client_block, 1, response);
+}
+
+// ========= Signal handling dispatcher ===========
+
+void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
+    client_block_t *block = client_getBlock(info->si_value.sival_int);
+    unsigned int data_size = block->data_size;
+    client_packet_t * request = dispatcherGetDataFromClient(block);
+    DispatcherDealsWithClientPacket(data_size, request, info->si_value.sival_int);
 }
 
 void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
@@ -82,30 +88,18 @@ void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
     guichet_block_t *block = guichet_getBlock(info->si_value.sival_int);
     guichet_packet_t work = guichet_dispatcherGetResponseFromGuichet(block);
 
-    // Send the response to the client
-    client_block_t *client_block = client_getBlock(work.serial_number);
-    client_packet_t* packet = malloc(sizeof(client_packet_t));
-    packet[0].type = info->si_value.sival_int;
-    packet[0].delay = work.delay;
-
-    printf("[DISPATCHER] Sending response to client %d\n", work.serial_number);
-    dispatcherWritingResponseForClient(client_block, 1, packet);
+    DispatcherDealsWithGuichetPacket(work, info->si_value.sival_int);
 }
 
 void timerSignalHandler(int signum, siginfo_t *info, void *context) {
     // Handle the timer signal
-    printf("Received timer signal\n");
+    printf("============================ Received timer signal\n");
     dispatcherTime += oneSecondsIRLEqualsHowManySeconds;
     if (dispatcherTime >= 86400) {
         dispatcherTime = dispatcherTime % 4600;
     }
     // If time is <= 6 am or > 6 pm
     dispatcherIsOpen = dispatcherTime >= 21600 && dispatcherTime < 64800;
-    // Handle the timer signal
-    time_t currentTime = time(NULL);
-    struct tm *localTime = localtime(&currentTime);
-    int hour = localTime->tm_hour;
-    dispatcherIsOpen = hour >= 6 && hour < 18;
 }
 
 void shutDownSignalHandler(int signum, siginfo_t *info, void *context) {
@@ -129,29 +123,55 @@ int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
      * 3. A list of requests in progress
      * ...
      */
+    timer_t timer;
+    struct sigevent sev;
+    struct itimerspec its;
+    memset(&descriptor, 0, sizeof(descriptor));
+
+    descriptor.sa_flags = SA_SIGINFO;
     sigfillset(&mask);
     sigdelset(&mask, SIGINT); // I want to kill the dispatcher with CTRL+C
     sigdelset(&mask, SIGKILL);
-
-    sigdelset(&mask, SIGRT_REQUEST);
-    sigdelset(&mask, SIGRT_RESPONSE);
-
     sigprocmask(SIG_SETMASK, &mask, NULL);
 
-    memset(&descriptor, 0, sizeof(descriptor));
-    descriptor.sa_flags = SA_SIGINFO;
-
-    // On masque tous les signaux sauf SIGINT pendant la gestion des request/response
-
-    descriptor.sa_sigaction = DispatcherHandleRequest;
-    sigaction(SIGRT_REQUEST, &descriptor, NULL);
-
-    descriptor.sa_sigaction = DispatcherHandleResponse;
-    sigaction(SIGRT_RESPONSE, &descriptor, NULL);
-
+    // Safe shutdown
     descriptor.sa_sigaction = shutDownSignalHandler;
     sigaction(SIGINT, &descriptor, NULL);
     sigaction(SIGKILL, &descriptor, NULL);
+
+    // Timer
+    descriptor.sa_sigaction = timerSignalHandler;
+    sigdelset(&mask, TIMER_SIGNAL);
+    sigprocmask(SIG_SETMASK, &mask, NULL);
+    descriptor.sa_mask = mask;
+    sigaction(TIMER_SIGNAL, &descriptor, NULL);
+
+    sev.sigev_notify = SIGEV_SIGNAL;
+    sev.sigev_signo = TIMER_SIGNAL;
+    sev.sigev_value.sival_ptr = &timer;
+    timer_create(CLOCK_REALTIME, &sev, &timer);
+
+    its.it_interval.tv_sec = 1;
+    its.it_interval.tv_nsec = 0;
+    its.it_value.tv_sec = 1;
+    its.it_value.tv_nsec = 0;
+    timer_settime(timer, 0, &its, NULL);
+
+    // Signals for communications between dispatcher, clients and guichets
+
+    descriptor.sa_mask = mask;
+    descriptor.sa_sigaction = DispatcherHandleRequest;
+    sigaction(SIGRT_REQUEST, &descriptor, NULL);
+
+    sigdelset(&mask, SIGRT_RESPONSE);
+
+    descriptor.sa_mask = mask;
+    descriptor.sa_sigaction = DispatcherHandleResponse;
+    sigaction(SIGRT_RESPONSE, &descriptor, NULL);
+
+    sigdelset(&mask, SIGRT_REQUEST);
+    sigdelset(&mask, SIGRT_RESPONSE);
+    sigprocmask(SIG_SETMASK, &mask, NULL);
 
     while(1) {
         pause();
@@ -216,27 +236,6 @@ int main(int argc, char const *argv[]) {
         } else if (guichet > 0) {
             clientPID = client;
             guichetPID = guichet;
-
-            timer_t timer;
-            struct sigevent sev;
-            struct itimerspec its;
-
-            struct sigaction sa;
-            sa.sa_flags = SA_SIGINFO;
-            sa.sa_sigaction = timerSignalHandler;
-            sigdelset(&sa.sa_mask, TIMER_SIGNAL);
-            sigaction(TIMER_SIGNAL, &sa, NULL);
-
-            sev.sigev_notify = SIGEV_SIGNAL;
-            sev.sigev_signo = TIMER_SIGNAL;
-            sev.sigev_value.sival_ptr = &timer;
-            timer_create(CLOCK_REALTIME, &sev, &timer);
-
-            its.it_interval.tv_sec = 1;
-            its.it_interval.tv_nsec = 0;
-            its.it_value.tv_sec = 1;
-            its.it_value.tv_nsec = 0;
-            timer_settime(timer, 0, &its, NULL);
 
             dispatcher_behavior(guichets, clients, NULL);
             client_destroyMemoryHandler();
