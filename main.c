@@ -48,7 +48,7 @@ unsigned int guichet_i[GUICHET_COUNT];
 
 
 // ========= Dispatcher utility functions =========
-void DispatcherDealsWithRequest(request_t *request, unsigned int client_id) {
+void DispatcherDealsWithRequest(client_packet_t *request, unsigned int client_id) {
     printf("[Dispatcher] Dealing with request from client %d\n", client_id);
     // TODO : Traiter la demande
 }
@@ -57,25 +57,39 @@ void DispatcherDealsWithRequest(request_t *request, unsigned int client_id) {
 // ========= Signal handling dispatcher ===========
 
 void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
-    // TODO : Traiter la demande
     client_block_t *block = client_getBlock(info->si_value.sival_int);
-    printf("[Dispatcher] Received request from client %d on block %d\n", info->si_value.sival_int, block->block_id);
     unsigned int data_size = block->data_size;
-    request_t * request = dispatcherGetDataFromClient(block);
+    client_packet_t * request = dispatcherGetDataFromClient(block);
     printf("[DISPATCHER] Received %d task from client %d \n The tasks are : \n", data_size, info->si_value.sival_int);
     for(int i=0; i<data_size; i++){
         printf("\t type : %d - delay : %ld\n", request[i].type, request[i].delay);
-        request[i].delay += 1;
     }
 
-    dispatcherWritingResponseForClient(block, data_size, request);
+    unsigned int guichet = request->type;
+    guichet_block_t *guichet_block = guichet_getBlock(guichet);
 
-    // TODO : envoyer la requête à un guichet
+    guichet_packet_t work = {
+            .delay = request->delay,
+            .serial_number = info->si_value.sival_int
+    };
+    printf("[DISPATCHER] Sending work to guichet %d\n", guichet);
+    guichet_dispatcherSendsWork(guichet_block, work);
 }
 
 void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
     printf("[Dispatcher] Received response from guichet\n");
-    // TODO : traiter la réponse
+
+    guichet_block_t *block = guichet_getBlock(info->si_value.sival_int);
+    guichet_packet_t work = guichet_dispatcherGetResponseFromGuichet(block);
+
+    // Send the response to the client
+    client_block_t *client_block = client_getBlock(work.serial_number);
+    client_packet_t* packet = malloc(sizeof(client_packet_t));
+    packet[0].type = info->si_value.sival_int;
+    packet[0].delay = work.delay;
+
+    printf("[DISPATCHER] Sending response to client %d\n", work.serial_number);
+    dispatcherWritingResponseForClient(client_block, 1, packet);
 }
 
 void timerSignalHandler(int signum, siginfo_t *info, void *context) {

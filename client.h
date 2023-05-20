@@ -34,13 +34,13 @@ void *client_behavior(void *arg) {
     value.sival_int = client_id;
 
     // Generate requests
-    request_t* packet = malloc(sizeof(request_t) * num_requests);
+    client_packet_t* packet = malloc(sizeof(client_packet_t) * num_requests);
 
     for (int i = 0; i < num_requests; i++) {
         task_t random_task = (task_t) rand() % GUICHET_COUNT;
         time_t random_delay = rand() % 10 + 1; // Minimum 1 second and max 10 seconds
 
-        request_t current_request = {
+        client_packet_t current_request = {
                 .type = random_task,
                 .delay = random_delay,
         };
@@ -57,7 +57,7 @@ void *client_behavior(void *arg) {
     sigqueue(dispatcher_id, SIGRT_REQUEST, value);
 
 
-    request_t *response = (request_t *) clientWaitData(block);
+    client_packet_t *response = (client_packet_t *) clientWaitData(block);
 
     printf("[Client : %d] Received response :\n", client_id);
     for (int i = 0; i < num_requests; i++) {

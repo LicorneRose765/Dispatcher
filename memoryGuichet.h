@@ -114,3 +114,36 @@ void guichet_destroyMemoryHandler() {
 guichet_block_t *guichet_getBlock(unsigned int id) {
     return &guichet_memory_handler->blocks[id];
 }
+
+/**
+ * The guichet waits for a work to be done
+ * @param block The block of the guichet
+ * @return The work to do
+ */
+guichet_packet_t guichet_waitForWork(guichet_block_t *block) {
+    sem_wait(&block->semaphore);
+    return block->data;
+}
+
+/**
+ * The guichet sends a work to the dispatcher
+ * @param block The block of the guichet
+ * @param work The work to do
+ */
+void guichet_dispatcherSendsWork(guichet_block_t *block, guichet_packet_t work) {
+    block->data = work;
+    sem_post(&block->semaphore);
+}
+
+/**
+ * The guichet sends the response to the dispatcher
+ * @param block The block of the guichet
+ * @param response The response to send
+ */
+void guichet_sendResponse(guichet_block_t *block, guichet_packet_t response) {
+    block->data = response;
+}
+
+guichet_packet_t guichet_dispatcherGetResponseFromGuichet(guichet_block_t *block) {
+    return block->data;
+}

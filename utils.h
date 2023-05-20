@@ -14,7 +14,7 @@
 
 // Params of the application
 #define CLIENT_COUNT 1
-#define GUICHET_COUNT 5 /* /!\ must be equal to the number of possible tasks */
+#define GUICHET_COUNT 1 /* /!\ must be equal to the number of possible tasks */
 #define MAX_PACKET_SEND 5
 
 #define MAX_DATA_SIZE 5
@@ -40,13 +40,13 @@ typedef unsigned int task_t;
 typedef struct {
     task_t type;
     time_t delay;
-} request_t;
+} client_packet_t;
 
 typedef struct {
     unsigned int block_id;
     sem_t semaphore;
     unsigned int data_size;
-    request_t data[GUICHET_COUNT];
+    client_packet_t data[GUICHET_COUNT];
 } client_block_t;
 
 typedef struct {
@@ -60,12 +60,12 @@ typedef struct {
 typedef struct {
     unsigned int serial_number;
     time_t delay;
-} work_t;
+} guichet_packet_t;
 
 typedef struct {
     unsigned int block_id;
     sem_t semaphore;
-    work_t data;
+    guichet_packet_t data;
 } guichet_block_t;
 
 typedef struct {

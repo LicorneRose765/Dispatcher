@@ -120,7 +120,7 @@ client_block_t *client_getBlock(unsigned int id) {
  * @param block The block of the client
  * @param data The data to send to the dispatcher
  */
-void  clientWritingRequest(client_block_t *block, unsigned int request_size, request_t *data) {
+void  clientWritingRequest(client_block_t *block, unsigned int request_size, client_packet_t *data) {
     block-> data_size = request_size;
     for(int i=0; i< request_size; i++) {
         block->data[i] = data[i];
@@ -133,7 +133,7 @@ void  clientWritingRequest(client_block_t *block, unsigned int request_size, req
  * @param block The block to get the data from
  * @return The data stored on the block (can be either a request or a response)
  */
-request_t *dispatcherGetDataFromClient(client_block_t *block) {
+client_packet_t *dispatcherGetDataFromClient(client_block_t *block) {
     return block->data;
 }
 
@@ -142,7 +142,7 @@ request_t *dispatcherGetDataFromClient(client_block_t *block) {
  * @param block The block of the client
  * @param data The data to send to the client
  */
-void dispatcherWritingResponseForClient(client_block_t *block, unsigned int response_size, request_t *data) {
+void dispatcherWritingResponseForClient(client_block_t *block, unsigned int response_size, client_packet_t *data) {
     block->data_size = response_size;
     for (int i = 0; i < response_size; i++) {
         block->data[i] = data[i];
@@ -155,7 +155,7 @@ void dispatcherWritingResponseForClient(client_block_t *block, unsigned int resp
  * @param block The block of the client
  * @return The list of responses
  */
-request_t *clientWaitData(client_block_t *block) {
+client_packet_t *clientWaitData(client_block_t *block) {
     sem_wait(&block->semaphore);
     return block->data;
 }
