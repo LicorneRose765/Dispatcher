@@ -35,6 +35,8 @@
 
 typedef unsigned int task_t;
 
+// ======= Client ======
+
 typedef struct {
     task_t type;
     time_t delay;
@@ -45,22 +47,34 @@ typedef struct {
     sem_t semaphore;
     unsigned int data_size;
     request_t data[GUICHET_COUNT];
-} block_t;
+} client_block_t;
 
 typedef struct {
     pid_t dispatcher_id;
-    block_t *block;
+    client_block_t *block;
     unsigned int id;
 } default_information_client_t;
 
+// ======== Guichet =======
+
+typedef struct {
+    unsigned int serial_number;
+    time_t delay;
+} work_t;
+
+typedef struct {
+    unsigned int block_id;
+    sem_t semaphore;
+    work_t data;
+} guichet_block_t;
+
 typedef struct {
     pid_t dispatcher_id;
-    block_t *block;
+    guichet_block_t *block;
     unsigned int id;
     task_t task;
 } default_information_guichet_t;
 
 
 // Communication structures
-
 

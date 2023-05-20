@@ -13,7 +13,8 @@
 
 #include "utils.h"
 #include "fifo.h"
-#include "memory.h"
+#include "memoryClient.h"
+#include "memoryGuichet.h"
 #include "client.h"
 #include "guichet.h"
 
@@ -36,6 +37,9 @@ int dispatcherIsOpen = 0;
 int oneSecondsIRLEqualsHowManySeconds = 60;
 long dispatcherTime = 0;
 
+pid_t clientPID;
+pid_t guichetPID;
+
 
 // ========= Dispatcher buffers ==========
 // Stores the id of the guiche, guichet_id[0] deals with the task 0, guichet_id[1] deals with the task 1, etc.
@@ -54,17 +58,17 @@ void DispatcherDealsWithRequest(request_t *request, unsigned int client_id) {
 
 void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
     // TODO : Traiter la demande
-    block_t *block = getBlock(info->si_value.sival_int);
+    client_block_t *block = client_getBlock(info->si_value.sival_int);
     printf("[Dispatcher] Received request from client %d on block %d\n", info->si_value.sival_int, block->block_id);
     unsigned int data_size = block->data_size;
-    request_t * request = dispatcherGetData(block);
+    request_t * request = dispatcherGetDataFromClient(block);
     printf("[DISPATCHER] Received %d task from client %d \n The tasks are : \n", data_size, info->si_value.sival_int);
     for(int i=0; i<data_size; i++){
         printf("\t type : %d - delay : %ld\n", request[i].type, request[i].delay);
         request[i].delay += 1;
     }
 
-    dispatcherWritingResponse(block, data_size, request);
+    dispatcherWritingResponseForClient(block, data_size, request);
 
     // TODO : envoyer la requête à un guichet
 }
@@ -88,6 +92,17 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
     struct tm *localTime = localtime(&currentTime);
     int hour = localTime->tm_hour;
     dispatcherIsOpen = hour >= 6 && hour < 18;
+}
+
+void shutDownSignalHandler(int signum, siginfo_t *info, void *context) {
+    // Handle the shutdown signal
+    printf("Received shutdown signal\n");
+
+    sigqueue(clientPID, SIGKILL, (union sigval) NULL);
+    sigqueue(guichetPID, SIGKILL, (union sigval) NULL);
+
+    client_destroyMemoryHandler();
+    exit(EXIT_SUCCESS);
 }
 
 // ================== Dispatcher ==================
@@ -120,6 +135,9 @@ int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
     descriptor.sa_sigaction = DispatcherHandleResponse;
     sigaction(SIGRT_RESPONSE, &descriptor, NULL);
 
+    descriptor.sa_sigaction = shutDownSignalHandler;
+    sigaction(SIGINT, &descriptor, NULL);
+    sigaction(SIGKILL, &descriptor, NULL);
 
     while(1) {
         pause();
@@ -136,7 +154,12 @@ int main(int argc, char const *argv[]) {
 
     srand(time(NULL));
 
-    if (initMemoryHandler() == IPC_ERROR) {
+    if (client_initMemoryHandler() == IPC_ERROR) {
+        perror("Error while initializing memory handler");
+        exit(EXIT_FAILURE);
+    }
+
+    if (guichet_initMemoryHandler() == IPC_ERROR) {
         perror("Error while initializing memory handler");
         exit(EXIT_FAILURE);
     }
@@ -146,7 +169,7 @@ int main(int argc, char const *argv[]) {
         // Créer des thread avec tous les clients
         for (int i = 0; i < CLIENT_COUNT; i++) {
             default_information_client_t *arg = malloc(sizeof(default_information_client_t));
-            block_t *block = claimBlock();
+            client_block_t *block = client_claimBlock();
             arg->block = block;
             arg->id = block->block_id;
             arg->dispatcher_id = getppid();
@@ -163,7 +186,7 @@ int main(int argc, char const *argv[]) {
             // Créer des thread avec tous les guichets
             for (int i = 0; i < GUICHET_COUNT; i++) {
                 default_information_guichet_t *arg = malloc(sizeof(default_information_guichet_t ));
-                block_t *block = claimBlock();
+                guichet_block_t *block = guichet_claimBlock();
                 arg->block = block;
                 arg->id = block->block_id;
                 arg->dispatcher_id = getppid();
@@ -177,6 +200,9 @@ int main(int argc, char const *argv[]) {
             }
             printf("All guichets are dead\n");
         } else if (guichet > 0) {
+            clientPID = client;
+            guichetPID = guichet;
+
             timer_t timer;
             struct sigevent sev;
             struct itimerspec its;
@@ -199,7 +225,7 @@ int main(int argc, char const *argv[]) {
             timer_settime(timer, 0, &its, NULL);
 
             dispatcher_behavior(guichets, clients, NULL);
-            destroyMemoryHandler();
+            client_destroyMemoryHandler();
         } else {
             perror("guichet fork");
             return EXIT_FAILURE;

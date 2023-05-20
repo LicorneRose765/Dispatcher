@@ -20,7 +20,7 @@ void *client_behavior(void *arg) {
 
     default_information_client_t *info = (default_information_client_t *) arg;
     pid_t dispatcher_id = info->dispatcher_id;
-    block_t *block = info->block;
+    client_block_t *block = info->block;
     unsigned int client_id = info->id;
 
     printf("[Client : %d] Creating a client with block %d\n", client_id, block->block_id);

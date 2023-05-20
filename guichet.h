@@ -23,7 +23,7 @@ void *guichet_behavior(void *arg) {
 
     default_information_guichet_t *info = (default_information_guichet_t *) arg;
     pid_t dispatcher_id = info->dispatcher_id;
-    block_t *block = info->block;
+    guichet_block_t *block = info->block;
     unsigned int id = info->id;
     task_t task_type = info->task;
 
