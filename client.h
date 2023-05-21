@@ -38,7 +38,7 @@ void *client_behavior(void *arg) {
 
     for (int i = 0; i < num_requests; i++) {
         task_t random_task = (task_t) rand() % GUICHET_COUNT;
-        time_t random_delay = rand() % 10 + 1; // Minimum 1 second and max 10 seconds
+        time_t random_delay = 16; //rand() % 10 + 1; // Minimum 1 second and max 10 seconds
 
         client_packet_t current_request = {
                 .type = random_task,

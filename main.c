@@ -139,7 +139,6 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
             packet->delay = removedNode->delay;
             // and deal with the packet
             DispatcherDealsWithClientPacket(removedNode->packet_size, packet, removedNode->serial_number);
-            free(packet);
         }
         // repeat
         while (!isEmpty(dispatcherClientQueue)) {
@@ -148,7 +147,6 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
             packet->type = removedNode->task;
             packet->delay = removedNode->delay;
             DispatcherDealsWithClientPacket(removedNode->packet_size, packet, removedNode->serial_number);
-            free(packet);
         }
         printf("[Dispatcher] All requests forwarded\n"); // TODO : not taking into account that some desks could be full
 
@@ -160,7 +158,6 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
             packet->delay = removedNode->delay;
             // and deal with the packet
             DispatcherDealsWithGuichetPacket(*packet, removedNode->serial_number);
-            free(packet);
         }
         // repeat
         while (!isEmpty(dispatcherDeskQueue)) {
@@ -168,7 +165,6 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
             guichet_packet_t *packet = malloc(sizeof(guichet_packet_t));
             packet->delay = removedNode->delay;
             DispatcherDealsWithGuichetPacket(*packet, removedNode->serial_number);
-            free(packet);
         }
         free(removedNode);
         printf("[Dispatcher] All responses forwarded\n");
