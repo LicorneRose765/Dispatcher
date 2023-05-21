@@ -35,6 +35,7 @@ union sigval value;
 
 int dispatcherIsOpen = 0;
 long dispatcherTime = 0;
+int firstTimerSignal = 1;
 
 pid_t clientPID;
 pid_t guichetPID;
@@ -79,7 +80,10 @@ void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
     client_block_t *block = client_getBlock(info->si_value.sival_int);
     unsigned int data_size = block->data_size;
     client_packet_t * request = dispatcherGetDataFromClient(block);
-    DispatcherDealsWithClientPacket(data_size, request, info->si_value.sival_int);
+    if (dispatcherIsOpen) DispatcherDealsWithClientPacket(data_size, request, info->si_value.sival_int);
+    else {
+        // TODO : mettre les demandes en buffer
+    }
 }
 
 void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
@@ -93,13 +97,30 @@ void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
 
 void timerSignalHandler(int signum, siginfo_t *info, void *context) {
     // Handle the timer signal
-    printf("============================ Received timer signal\n");
-    dispatcherTime += oneSecondsIRLEqualsHowManySeconds;
+    // printf("============================ Received timer signal\n");
+    if (firstTimerSignal) {
+        firstTimerSignal = 0;
+        dispatcherTime += STARTING_TIME;
+    } else {
+        dispatcherTime += TIMER_SCALE;
+    }
     if (dispatcherTime >= 86400) {
         dispatcherTime = dispatcherTime % 4600;
     }
     // If time is <= 6 am or > 6 pm
+    int wasOpen = dispatcherIsOpen;
     dispatcherIsOpen = dispatcherTime >= 21600 && dispatcherTime < 64800;
+
+    int hours = (dispatcherTime / 3600) % 24;
+    int minutes = (dispatcherTime % 3600) / 60;
+    int secs = (dispatcherTime % 3600) % 60;
+
+    printf("  o  [Clock] %02d:%02d:%02d\n", hours, minutes, secs);
+    if (wasOpen && !dispatcherIsOpen) printf("[Dispatcher] Bravo six, going dark\n");
+    if (!wasOpen && dispatcherIsOpen) {
+        printf("[Dispatcher] GOOOOOOOOOD MORNING GAMERS\n");
+        // TODO : traiter les demandes qui sont dans le buffer
+    }
 }
 
 void shutDownSignalHandler(int signum, siginfo_t *info, void *context) {
@@ -131,12 +152,14 @@ int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
     descriptor.sa_flags = SA_SIGINFO;
     sigfillset(&mask);
     sigdelset(&mask, SIGINT); // I want to kill the dispatcher with CTRL+C
+    sigdelset(&mask, SIGTERM);
     sigdelset(&mask, SIGKILL);
     sigprocmask(SIG_SETMASK, &mask, NULL);
 
     // Safe shutdown
     descriptor.sa_sigaction = shutDownSignalHandler;
     sigaction(SIGINT, &descriptor, NULL);
+    sigaction(SIGTERM, &descriptor, NULL);
     sigaction(SIGKILL, &descriptor, NULL);
 
     // Timer

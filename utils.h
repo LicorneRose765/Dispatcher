@@ -35,7 +35,8 @@
 #define WORKING 1
 
 // TIMER
-int oneSecondsIRLEqualsHowManySeconds = 60;
+#define TIMER_SCALE 3600;
+#define STARTING_TIME 3600*8
 
 
 typedef unsigned int task_t;
