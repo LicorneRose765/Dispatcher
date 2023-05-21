@@ -36,7 +36,7 @@
 
 // TIMER
 #define TIMER_SCALE 3600;
-#define STARTING_TIME 3600*8
+#define STARTING_TIME 3600*3
 
 
 typedef unsigned int task_t;

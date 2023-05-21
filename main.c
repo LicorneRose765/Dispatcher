@@ -35,6 +35,8 @@ union sigval value;
 
 long dispatcherTime = STARTING_TIME;
 int dispatcherIsOpen = 0;
+Fifo *dispatcherClientQueue;
+Fifo *dispatcherDeskQueue;
 
 pid_t clientPID;
 pid_t guichetPID;
@@ -79,9 +81,16 @@ void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
     client_block_t *block = client_getBlock(info->si_value.sival_int);
     unsigned int data_size = block->data_size;
     client_packet_t * request = dispatcherGetDataFromClient(block);
+    // if it's day, go ahead
     if (dispatcherIsOpen) DispatcherDealsWithClientPacket(data_size, request, info->si_value.sival_int);
     else {
-        // TODO : mettre les demandes en buffer
+        // if it's night, enqueue the requests
+        printf("[Dispatcher] Sorry client I'm sleeping (it will be done later in the day)\n");
+        node_t *node;
+        for (int i = 0; i < data_size; i++) {
+            node = createNode(info->si_value.sival_int, request[i].type, request[i].delay, data_size);  // TODO serial number = client_id ?
+            enqueue(dispatcherClientQueue, node);
+        }
     }
 }
 
@@ -91,7 +100,13 @@ void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
     guichet_block_t *block = guichet_getBlock(info->si_value.sival_int);
     guichet_packet_t work = guichet_dispatcherGetResponseFromGuichet(block);
 
-    DispatcherDealsWithGuichetPacket(work, info->si_value.sival_int);
+    if (dispatcherIsOpen) DispatcherDealsWithGuichetPacket(work, info->si_value.sival_int);
+    else {
+        // if it's night, enqueue the requests
+        printf("[Dispatcher] Sorry desk I'm sleeping (it will be done later in the day)\n");
+        node_t *node = createNode(info->si_value.sival_int, 0, work.delay, 1);  // TODO task = NULL ?
+        enqueue(dispatcherDeskQueue, node);
+    }
 }
 
 void printTime() {
@@ -105,8 +120,8 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
     // Handle the timer signal
     // printf("============================ Received timer signal\n");
     dispatcherTime += TIMER_SCALE;
-    if (dispatcherTime >= 86400) {
-        dispatcherTime = dispatcherTime % 4600;
+    if (dispatcherTime > 86400) {
+        dispatcherTime = dispatcherTime % 86400;
     }
     // If time is <= 6 am or > 6 pm
     int wasOpen = dispatcherIsOpen;
@@ -115,7 +130,48 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
     if (wasOpen && !dispatcherIsOpen) printf("[Dispatcher] Bravo six, going dark\n");
     if (!wasOpen && dispatcherIsOpen) {
         printf("[Dispatcher] GOOOOOOOOOD MORNING GAMERS\n");
-        // TODO : traiter les demandes qui sont dans le buffer
+        // get the first node
+        node_t *removedNode = dequeue(dispatcherClientQueue);
+        if (removedNode != NULL) {
+            // if it's not null, create a packet with it
+            client_packet_t *packet = malloc(sizeof(client_packet_t));
+            packet->type = removedNode->task;
+            packet->delay = removedNode->delay;
+            // and deal with the packet
+            DispatcherDealsWithClientPacket(removedNode->packet_size, packet, removedNode->serial_number);
+            free(packet);
+        }
+        // repeat
+        while (!isEmpty(dispatcherClientQueue)) {
+            removedNode = dequeue(dispatcherClientQueue);
+            client_packet_t *packet = malloc(sizeof(client_packet_t));
+            packet->type = removedNode->task;
+            packet->delay = removedNode->delay;
+            DispatcherDealsWithClientPacket(removedNode->packet_size, packet, removedNode->serial_number);
+            free(packet);
+        }
+        printf("[Dispatcher] All requests forwarded\n"); // TODO : not taking into account that some desks could be full
+
+        // get the first node
+        removedNode = dequeue(dispatcherDeskQueue);
+        if (removedNode != NULL) {
+            // if it's not null, create a packet with it
+            guichet_packet_t *packet = malloc(sizeof(guichet_packet_t));
+            packet->delay = removedNode->delay;
+            // and deal with the packet
+            DispatcherDealsWithGuichetPacket(*packet, removedNode->serial_number);
+            free(packet);
+        }
+        // repeat
+        while (!isEmpty(dispatcherDeskQueue)) {
+            removedNode = dequeue(dispatcherDeskQueue);
+            guichet_packet_t *packet = malloc(sizeof(guichet_packet_t));
+            packet->delay = removedNode->delay;
+            DispatcherDealsWithGuichetPacket(*packet, removedNode->serial_number);
+            free(packet);
+        }
+        free(removedNode);
+        printf("[Dispatcher] All responses forwarded\n");
     }
 }
 
@@ -191,6 +247,9 @@ int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
     sigdelset(&mask, SIGRT_REQUEST);
     sigdelset(&mask, SIGRT_RESPONSE);
     sigprocmask(SIG_SETMASK, &mask, NULL);
+
+    dispatcherClientQueue = createFifo();
+    dispatcherDeskQueue = createFifo();
 
     while(1) {
         pause();
@@ -269,5 +328,7 @@ int main(int argc, char const *argv[]) {
         perror("client fork");
         return EXIT_FAILURE;
     }
+    free(dispatcherClientQueue);
+    free(dispatcherDeskQueue);
     return EXIT_SUCCESS;
 }
