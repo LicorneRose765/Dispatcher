@@ -33,9 +33,8 @@ sigset_t mask;
 struct sigaction descriptor;
 union sigval value;
 
+long dispatcherTime = STARTING_TIME;
 int dispatcherIsOpen = 0;
-long dispatcherTime = 0;
-int firstTimerSignal = 1;
 
 pid_t clientPID;
 pid_t guichetPID;
@@ -95,27 +94,24 @@ void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
     DispatcherDealsWithGuichetPacket(work, info->si_value.sival_int);
 }
 
+void printTime() {
+    int hours = (dispatcherTime / 3600) % 24;
+    int minutes = (dispatcherTime % 3600) / 60;
+    int secs = (dispatcherTime % 3600) % 60;
+    printf("  o  [Clock] %02d:%02d:%02d\n", hours, minutes, secs);
+}
+
 void timerSignalHandler(int signum, siginfo_t *info, void *context) {
     // Handle the timer signal
     // printf("============================ Received timer signal\n");
-    if (firstTimerSignal) {
-        firstTimerSignal = 0;
-        dispatcherTime += STARTING_TIME;
-    } else {
-        dispatcherTime += TIMER_SCALE;
-    }
+    dispatcherTime += TIMER_SCALE;
     if (dispatcherTime >= 86400) {
         dispatcherTime = dispatcherTime % 4600;
     }
     // If time is <= 6 am or > 6 pm
     int wasOpen = dispatcherIsOpen;
     dispatcherIsOpen = dispatcherTime >= 21600 && dispatcherTime < 64800;
-
-    int hours = (dispatcherTime / 3600) % 24;
-    int minutes = (dispatcherTime % 3600) / 60;
-    int secs = (dispatcherTime % 3600) % 60;
-
-    printf("  o  [Clock] %02d:%02d:%02d\n", hours, minutes, secs);
+    printTime();
     if (wasOpen && !dispatcherIsOpen) printf("[Dispatcher] Bravo six, going dark\n");
     if (!wasOpen && dispatcherIsOpen) {
         printf("[Dispatcher] GOOOOOOOOOD MORNING GAMERS\n");
@@ -220,6 +216,9 @@ int main(int argc, char const *argv[]) {
         perror("Error while initializing memory handler");
         exit(EXIT_FAILURE);
     }
+
+    dispatcherIsOpen = dispatcherTime >= 21600 && dispatcherTime < 64800;
+    printTime();
 
     pid_t client = fork();
     if (client == 0) {
