@@ -81,7 +81,6 @@ int desk_initMemoryHandler() {
     }
 
     desk_memory_handler->blocks = mem;
-
     return EXIT_SUCCESS;
 }
 
