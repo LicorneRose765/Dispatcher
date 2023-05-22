@@ -29,6 +29,10 @@
 #define FREE 0
 #define WORKING 1
 
+// Dispatcher states
+#define OPENED 1
+#define CLOSED 0
+
 // TIMER
 #define TIMER_SCALE 3600; // 1 sec = 1h in the app
 #define STARTING_TIME (3600*3) // Timer starts at 3am

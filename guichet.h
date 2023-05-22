@@ -12,7 +12,11 @@
  *      - Repeat
  */
 
-
+/**
+ * Behavior of the desk process when first running : set basic info such as ID and the corresponding shared memory block
+ * then follow the desk's behavior.
+ * @param arg default_information_guichet_t
+ */
 void *guichet_behavior(void *arg) {
     srand(time(0));
 

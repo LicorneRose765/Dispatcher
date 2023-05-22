@@ -17,7 +17,11 @@
  *      - Resend a packet and repeat
  */
 
-
+/**
+ * Behavior of the desk process when first running : set basic info such as ID and the corresponding shared memory
+ * block, the minimum and maximum waiting time and the number of requests then follow the client's behavior.
+ * @param arg default_information_guichet_t
+ */
 void *client_behavior(void *arg) {
     default_information_client_t *info = (default_information_client_t *) arg;
     pid_t dispatcher_id = info->dispatcher_id;

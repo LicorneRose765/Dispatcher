@@ -33,20 +33,20 @@ sigset_t mask;
 struct sigaction descriptor;
 union sigval value;
 
-long dispatcherTime = STARTING_TIME;
-int dispatcherIsOpen = 0;
+long dispatcherTime = STARTING_TIME; // Virtual time
+int dispatcherState; // State of the dispatcher (opened or closed
 
 pid_t clientPID;
 pid_t guichetPID;
 
-Fifo *desksQueues[GUICHET_COUNT];
-int desksOccupancy[GUICHET_COUNT];
+Fifo *desksQueues[GUICHET_COUNT]; // List of queues, one queue per desk, used to hold requests when the desk is busy
+int desksOccupancy[GUICHET_COUNT]; // List of occupancies of desks
 
 
 // ========= Dispatcher buffers & function for buffers ==========
 // Keep track of the state of the desks
-Fifo *dispatcherClientQueue;
-response_fifo *fifoForSleepyDispatcher;
+Fifo *dispatcherClientQueue; // Queue of requests received when the dispatcher is sleeping
+response_fifo *fifoForSleepyDispatcher; // Queue of responses received when the dispatcher is sleeping
 
 client_response_buffer clientResponseBuffer[CLIENT_COUNT];
 
@@ -72,7 +72,7 @@ void sendToClient(unsigned int clientID){
     client_response_buffer buffer = clientResponseBuffer[clientID];
     client_block_t *clientBlock = client_getBlock(clientID);
 
-    if (dispatcherIsOpen) {
+    if (dispatcherState) {
         printf("[  -  D  -  ] [  ] Sending packet to client %u\n", clientID);
         dispatcherWritingResponseForClient(clientBlock,
                                            buffer.response_to_wait,
@@ -101,6 +101,12 @@ void addNewResponse(unsigned int clientID, client_packet_t response) {
 
 
 // ========= Dispatcher utility functions =========
+/**
+ * Handle reception of a client packet : read the packet and send requests to or enqueue them for an appropriate desk.
+ * @param packet_size The number of requests in the packet
+ * @param request A pointer to the packet
+ * @param client_id The ID of the client
+ */
 void DispatcherDealsWithClientPacket(unsigned int packet_size, client_packet_t *request, unsigned int client_id) {
     unsigned int guichet = request->type;
     guichet_block_t *guichet_block = guichet_getBlock(guichet);
@@ -120,6 +126,12 @@ void DispatcherDealsWithClientPacket(unsigned int packet_size, client_packet_t *
     }
 }
 
+/**
+ * Handle reception of a desk response packet : mark the desk as free, add the response in a buffer for the client and
+ * if the responding desk has requests remaining in its corresponding queue, send it the request.
+ * @param packet A pointer to the packet
+ * @param guichet_id The ID (= type) of the desk
+ */
 void DispatcherDealsWithGuichetPacket(guichet_packet_t packet, unsigned int guichet_id) {
     // Send the response to the client
     // printf("[  -  D  -  ] [  ] Received response from guichet %d, freeing occupancy\n", guichet_id);
@@ -147,6 +159,12 @@ void DispatcherDealsWithGuichetPacket(guichet_packet_t packet, unsigned int guic
 
 // ========= Signal handling dispatcher ===========
 
+/**
+ * Handle reception of a request signal sent by a client : // TODO cyril pls help
+ * @param signum
+ * @param info
+ * @param context
+ */
 void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
     // Packet reveived from client
     client_block_t *block = client_getBlock(info->si_value.sival_int);
@@ -158,7 +176,7 @@ void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
 
 
     // if it's day, go ahead
-    if (dispatcherIsOpen) DispatcherDealsWithClientPacket(data_size, request, info->si_value.sival_int);
+    if (dispatcherState == OPENED) DispatcherDealsWithClientPacket(data_size, request, info->si_value.sival_int);
     else {
         // if it's night, enqueue the requests
         // printf("[  -  D  -  ] [  ] Sorry client I'm sleeping (it will be done later in the day)\n");
@@ -171,6 +189,12 @@ void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
     }
 }
 
+/**
+ * Handle reception of a response signal sent by a desk : read the corresponding block and deal with its content.
+ * @param signum // TODO : cyril pls help
+ * @param info
+ * @param context
+ */
 void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
     // Received response signal
     task_t task = info->si_value.sival_int;
@@ -180,6 +204,9 @@ void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
     DispatcherDealsWithGuichetPacket(work, info->si_value.sival_int);
 }
 
+/**
+ * Nicely prints time for our tiny beautiful eyes.
+ */
 void printTime() {
     int hours = (dispatcherTime / 3600) % 24;
     int minutes = (dispatcherTime % 3600) / 60;
@@ -189,6 +216,14 @@ void printTime() {
     // printf("x----------x\n");
 }
 
+/**
+ * Handles reception of a timer signal by incrementing the timer counter appropriately and updating the state of the
+ * dispatcher if it is closing or opening. If it is opening, handle all requests sent by client overnight and all
+ * responses sent by desks overnight.
+ * @param signum // TODO : cyril pls help
+ * @param info
+ * @param context
+ */
 void timerSignalHandler(int signum, siginfo_t *info, void *context) {
     // Handle the timer signal
     dispatcherTime += TIMER_SCALE;
@@ -196,11 +231,11 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
         dispatcherTime = dispatcherTime % 86400;
     }
     // If time is <= 6 am or > 6 pm
-    int wasOpen = dispatcherIsOpen;
-    dispatcherIsOpen = dispatcherTime >= 21600 && dispatcherTime < 64800;
+    int wasOpen = dispatcherState;
+    dispatcherState = dispatcherTime >= 21600 && dispatcherTime < 64800;
     printTime();
-    if (wasOpen && !dispatcherIsOpen) printf("[  -  D  -  ] [  ] Bravo six, going dark\n");
-    if (!wasOpen && dispatcherIsOpen) {
+    if (wasOpen && (dispatcherState == CLOSED)) printf("[  -  D  -  ] [  ] Bravo six, going dark\n");
+    if (!wasOpen && (dispatcherState == OPENED)) {
         printf("[  -  D  -  ] [  ] GOOOOOOOOOD MORNING GAMERS\n");
 
         while (!isEmpty(dispatcherClientQueue)) {
@@ -224,9 +259,12 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
     }
 }
 
+/**
+ * Handle the shutdown signal by sending a KILL signal to the client and desk processes and destroying the memory
+ * handlers. // TODO : cyril pls check
+ */
 void shutDownSignalHandler(int signum, siginfo_t *info, void *context) {
-    // Handle the shutdown signal
-    printf("[  -  D  - ] [  ] Received shutdown signal\n");
+    printf("[  -  D  -  ] [  ] Received shutdown signal\n");
 
     sigqueue(clientPID, SIGKILL, (union sigval) NULL);
     sigqueue(guichetPID, SIGKILL, (union sigval) NULL);
@@ -238,14 +276,13 @@ void shutDownSignalHandler(int signum, siginfo_t *info, void *context) {
 
 // ================== Dispatcher ==================
 
+/**
+ * Behavior of the dispatcher when first running : set the signal handlers and create queues.
+ * @param guichets A list of threads corresponding to the available desks
+ * @param clients A list of threads corresponding to the available clients
+ * @param block A pointer to the shared memory block // TODO : cyril pls check
+ */
 int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
-    /**
-     * The dispatcher needs :
-     * 1. A list of guichets
-     * 2. A list of clients
-     * 3. A list of requests in progress
-     * ...
-     */
     timer_t timer;
     struct sigevent sev;
     struct itimerspec its;
@@ -300,6 +337,7 @@ int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
 
     dispatcherClientQueue = createFifo();
 
+    // Set all desks as free
     for (int i = 0; i < GUICHET_COUNT; i++) {
         desksQueues[i] = createFifo();
         desksOccupancy[i] = FREE;
@@ -332,7 +370,7 @@ int main(int argc, char const *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    dispatcherIsOpen = dispatcherTime >= 21600 && dispatcherTime < 64800;
+    dispatcherState = dispatcherTime >= 21600 && dispatcherTime < 64800;
     printTime();
 
     pid_t client = fork();
@@ -352,7 +390,7 @@ int main(int argc, char const *argv[]) {
             pthread_join(clients[i], NULL);
         }
         // stop the Dispatcher.
-        printf("[  -  D  - ] [  ] All the clients finished\n");
+        printf("[  -  D  -  ] [  ] All the clients finished\n");
         sigqueue(getppid(), SIGINT, value);
     } else if (client > 0) {
         pid_t guichet = fork();
