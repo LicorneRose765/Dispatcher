@@ -226,7 +226,7 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
 
 void shutDownSignalHandler(int signum, siginfo_t *info, void *context) {
     // Handle the shutdown signal
-    printf("Received shutdown signal\n");
+    printf("[  -  D  - ] [  ] Received shutdown signal\n");
 
     sigqueue(clientPID, SIGKILL, (union sigval) NULL);
     sigqueue(guichetPID, SIGKILL, (union sigval) NULL);
@@ -352,7 +352,7 @@ int main(int argc, char const *argv[]) {
             pthread_join(clients[i], NULL);
         }
         // stop the Dispatcher.
-        printf("All the clients finished\n");
+        printf("[  -  D  - ] [  ] All the clients finished\n");
         sigqueue(getppid(), SIGINT, value);
     } else if (client > 0) {
         pid_t guichet = fork();
