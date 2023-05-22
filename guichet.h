@@ -1,39 +1,39 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
+/*
+ * This file implements the behavior of the desks.
+ * Each desk is defined by its ID which is his task type. (desk u deals with task u)
+ *
+ *
+ * Each desk works this way :
+ *      - Wait for work sent from the dispatcher
+ *      - Check the delay required to do that work
+ *      - Wait the delay (simulate the work)
+ *      - Push the response to his block.
+ *      - Signal the dispatcher with a SIGRT_RESPONSE
+ *      - Repeat
+ */
 
 
 void *guichet_behavior(void *arg) {
-    /**
-     * V 1. Créer un guichet
-     * X 2. Attendre une demande
-     * X 3. Traiter la demande
-     * X 4. Retour à l'étape 2
-    */
     srand(time(0));
 
     default_information_guichet_t *info = (default_information_guichet_t *) arg;
     pid_t dispatcher_id = info->dispatcher_id;
     guichet_block_t *block = info->block;
     unsigned int guichet_id = info->id;
-    task_t task_type = info->task;
 
-    // Used to share the client id in the signal
     union sigval value;
     value.sival_int = guichet_id;
 
-    // printf("[Guichet block id : %d] Creating a guichet with task : %d\n",guichet_id ,task_type);
 
     while (1) {
+        // Wait for work
         guichet_packet_t work = (guichet_packet_t) guichet_waitForWork(block);
         printf("[  -  -  G  ] [%02d] Received work, working for : %ldh\n", guichet_id, work.delay);
 
         sleep(work.delay);
 
-        // send the response to the dispatcher. The response is the same packet, but we can easily add data to it.
-        //work.delay = (time_t) NULL;
+        // send the response to the dispatcher.
+        // The response is the same packet, but we can easily add data to it if want had to.
 
         guichet_sendResponse(block, work);
         printf("[  -  -  G  ] [%02d] Sending response\n", guichet_id);

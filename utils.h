@@ -11,14 +11,14 @@
 #define SEM_PUBLIC 1
 
 // Params of the application
-#define CLIENT_COUNT 2
-#define GUICHET_COUNT 5
-#define MAX_PACKET_SEND 5
+#define CLIENT_COUNT 1
+#define GUICHET_COUNT 1
+#define MAX_PACKET_SENT 1 // Number of packet sent by each client before exit
 
-#define MAX_TIME_REQUEST 600 // 10 minutes
-#define MIN_TIME_REQUEST 60 // 1 minute
-#define MAX_TIME_BETWEEN_REQUESTS 2
-#define MAX_TIME_BEFORE_REQUESTS 2
+#define MAX_TIME_REQUEST 12 // 12 timer signals (see TIMER_SCALE)
+#define MIN_TIME_REQUEST 0
+#define MAX_TIME_BETWEEN_REQUESTS 12
+#define MAX_TIME_BEFORE_REQUESTS 16
 
 // Signals
 #define SIGRT_REQUEST (SIGRTMIN + 0)
@@ -30,8 +30,8 @@
 #define WORKING 1
 
 // TIMER
-#define TIMER_SCALE 3600;
-#define STARTING_TIME (3600*3)
+#define TIMER_SCALE 3600; // 1 sec = 1h in the app
+#define STARTING_TIME (3600*3) // Timer starts at 3am
 
 
 typedef unsigned int task_t;

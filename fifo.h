@@ -1,5 +1,6 @@
 /*
- *
+ * Implements a structure of a queue used to stores all the request for a given task.
+ * For example, if the desk 1 is busy, we store all the requests for task 1 in his queue.
  */
 
 typedef struct node {
@@ -10,7 +11,7 @@ typedef struct node {
     int packet_size;
 } node_t;
 
-typedef struct{
+typedef struct {
     node_t *front;
     node_t *back;
     unsigned int size;
@@ -67,7 +68,7 @@ unsigned int isEmpty(Fifo *fifo) {
  * @param fifo The Queue
  * @param node The node to add (the task)
  */
-void enqueue(Fifo *fifo, node_t* node) {
+void enqueue(Fifo *fifo, node_t *node) {
     if (!isEmpty(fifo)) {
         fifo->back->next = node;
         fifo->back = node;
@@ -91,15 +92,4 @@ node_t *dequeue(Fifo *fifo) {
     fifo->front = fifo->front->next;
     fifo->size--;
     return node;
-}
-
-
-void print_list(Fifo *fifo) {
-    // TODO : remove this function
-    node_t *current = fifo->front;
-    while (current != NULL) {
-        printf("%d ", current->serial_number);
-        current = current->next;
-    }
-    printf("\n");
 }

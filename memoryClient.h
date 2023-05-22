@@ -13,6 +13,8 @@
  *     - Data to store (list of request)
  */
 
+// TODO : comment this file correctly
+
 typedef struct {
     unsigned int max_size;
     unsigned int current_size;
@@ -135,6 +137,7 @@ void  clientWritingRequest(client_block_t *block, unsigned int request_size, cli
     for(int i=0; i< request_size; i++) {
         block->data[i] = data[i];
     }
+    free(data);
 }
 
 /**

@@ -12,6 +12,8 @@
  *    - A work structure to store the work to do.
  */
 
+// TODO : comment this file correctly
+
 typedef struct {
     unsigned int max_size;
     unsigned int current_size;

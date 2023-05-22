@@ -202,19 +202,9 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
     if (wasOpen && !dispatcherIsOpen) printf("[  -  D  -  ] [  ] Bravo six, going dark\n");
     if (!wasOpen && dispatcherIsOpen) {
         printf("[  -  D  -  ] [  ] GOOOOOOOOOD MORNING GAMERS\n");
-        // get the first node
-        node_t *removedNode = dequeue(dispatcherClientQueue);
-        if (removedNode != NULL) {
-            // if it's not null, create a packet with it
-            client_packet_t *packet = malloc(sizeof(client_packet_t));
-            packet->type = removedNode->task;
-            packet->delay = removedNode->delay;
-            // and deal with the packet
-            DispatcherDealsWithClientPacket(removedNode->packet_size, packet, removedNode->serial_number);
-        }
-        // repeat
+
         while (!isEmpty(dispatcherClientQueue)) {
-            removedNode = dequeue(dispatcherClientQueue);
+            node_t *removedNode = dequeue(dispatcherClientQueue);
             client_packet_t *packet = malloc(sizeof(client_packet_t));
             packet->type = removedNode->task;
             packet->delay = removedNode->delay;
@@ -361,6 +351,9 @@ int main(int argc, char const *argv[]) {
         for (int i = 0; i < CLIENT_COUNT; i++) {
             pthread_join(clients[i], NULL);
         }
+        // stop the Dispatcher.
+        printf("All the clients finished\n");
+        sigqueue(getppid(), SIGINT, value);
     } else if (client > 0) {
         pid_t guichet = fork();
         if (guichet == 0) {
