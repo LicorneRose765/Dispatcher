@@ -63,7 +63,7 @@ typedef struct {
 // ======== DESK =======
 
 typedef struct {
-    unsigned int serial_number;
+    unsigned int serial_number; // = client ID in this case
     time_t delay;
 } desk_packet_t;
 
