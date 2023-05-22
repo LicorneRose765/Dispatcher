@@ -36,7 +36,7 @@ void *client_behavior(void *arg) {
     // Generate requests
     client_packet_t* packet = malloc(sizeof(client_packet_t) * num_requests);
 
-    printf("[Client %02d] Sending packet with %d tasks.\n  | The tasks are :\n", client_id, num_requests);
+    printf("[  C  -  -  ] [%02d] Sending packet with %d tasks.\n                 | The tasks are :\n", client_id, num_requests);
     for (int i = 0; i < num_requests; i++) {
         task_t random_task = (task_t) rand() % GUICHET_COUNT;
         time_t random_delay = rand() % 5 + 1; // Minimum 1 hour and max 5 hours
@@ -47,7 +47,7 @@ void *client_behavior(void *arg) {
         };
         // TODO : regarder si c'est bien client_id pour le numéro de série .
         packet[i] = current_request;
-        printf("  |\ttype : %d & delay = %ld\n", random_task, random_delay);
+        printf("                 |--  Type : %d, delay = %ld\n", random_task, random_delay);
     }
 
 
@@ -58,9 +58,9 @@ void *client_behavior(void *arg) {
 
     client_packet_t *response = (client_packet_t *) clientWaitData(block);
 
-    printf("[Client : %d] Received response :\n", client_id);
+    printf("[  C  -  -  ] [%02d] Received response :\n", client_id);
     for (int i = 0; i < num_requests; i++) {
-        printf("  |\tTask : %d, delay : %ld\n", response[i].type, response[i].delay);
+        printf("                 |--  Type : %d, delay : %ld\n", response[i].type, response[i].delay);
     }
 
     sleep(temps_max);

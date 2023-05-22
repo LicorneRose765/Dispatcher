@@ -62,7 +62,7 @@ int guichet_initMemoryHandler() {
         perror("shmget guichet");
         return IPC_ERROR;
     }
-    printf("shmid value = %d\n", shmid);
+    // printf("shmid value = %d\n", shmid);
     void *shmaddr = shmat(shmid, NULL, 0);
     if (shmaddr == (void *) IPC_ERROR) return IPC_ERROR;
 

@@ -73,15 +73,15 @@ void sendToClient(unsigned int clientID){
     client_block_t *clientBlock = client_getBlock(clientID);
 
     if (dispatcherIsOpen) {
-        printf("[Dispatcher] Sending packet to client %u\n", clientID);
+        printf("[  -  D  -  ] [  ] Sending packet to client %u\n", clientID);
         dispatcherWritingResponseForClient(clientBlock,
                                            buffer.response_to_wait,
                                            buffer.responses);
     }
     else {
         // if it's night, enqueue the requests
-        // printf("[Dispatcher] Sorry desk I'm sleeping (it will be done later in the day)\n");
-        printf("[Dispatcher] I'm sleeping, adding the packet for the client %u to the queue\n", clientID);
+        // printf("[  -  D  -  ] [  ] Sorry desk I'm sleeping (it will be done later in the day)\n");
+        printf("[  -  D  -  ] [  ] I'm sleeping, adding the packet for the client %u to the queue\n", clientID);
         response_node_t *node = createResponseNode(buffer.responses, buffer.response_to_wait, clientID);
         enqueueResponse(fifoForSleepyDispatcher, node);
     }
@@ -89,7 +89,7 @@ void sendToClient(unsigned int clientID){
 
 
 void addNewResponse(unsigned int clientID, client_packet_t response) {
-    printf("[Dispatcher] add a new response for the client %u\n", clientID);
+    printf("[  -  D  -  ] [  ] Add a new response for the client %u\n", clientID);
     client_response_buffer *buffer = &clientResponseBuffer[clientID];
     buffer->responses[buffer->response_received] = response;
     buffer->response_received += 1;
@@ -110,11 +110,11 @@ void DispatcherDealsWithClientPacket(unsigned int packet_size, client_packet_t *
             .serial_number = client_id
     };
     if (desksOccupancy[guichet] == WORKING) {
-        printf("[Dispatcher] Desk %d is full, enqueueing\n", guichet);
+        // printf("[  -  D  -  ] [  ] Desk %d is full, enqueueing\n", guichet);
         node_t *node = createNode(client_id, request->type, request->delay, packet_size);
         enqueue(desksQueues[guichet], node);
     } else {
-        printf("[Dispatcher] Sending work to guichet %d\n", guichet);
+        // printf("[  -  D  -  ] [  ] Sending work to guichet %d\n", guichet);
         desksOccupancy[guichet] = WORKING;
         guichet_dispatcherSendsWork(guichet_block, work);
     }
@@ -122,7 +122,7 @@ void DispatcherDealsWithClientPacket(unsigned int packet_size, client_packet_t *
 
 void DispatcherDealsWithGuichetPacket(guichet_packet_t packet, unsigned int guichet_id) {
     // Send the response to the client
-    printf("[Dispatcher] Received response from guichet %d, freeing occupancy\n", guichet_id);
+    // printf("[  -  D  -  ] [  ] Received response from guichet %d, freeing occupancy\n", guichet_id);
     desksOccupancy[guichet_id] = FREE;
     client_packet_t response = {
             .type = guichet_id,
@@ -131,17 +131,17 @@ void DispatcherDealsWithGuichetPacket(guichet_packet_t packet, unsigned int guic
     addNewResponse(packet.serial_number, response);
 
     if (!isEmpty(desksQueues[guichet_id])) {
-        printf("[Dispatcher] Queue not empty for desk %d, dequeueing\n", guichet_id);
+        // printf("[  -  D  -  ] [  ] Queue not empty for desk %d, dequeueing\n", guichet_id);
         node_t *removedNode = dequeue(desksQueues[guichet_id]);
         // if it's not null, create a packet with it
         client_packet_t *newPacket = malloc(sizeof(client_packet_t) * removedNode->packet_size);
         newPacket->type = removedNode->task;
         newPacket->delay = removedNode->delay;
         // and deal with the packet
-        printf("[Dispatcher] Sending dequeued packet for desk %d\n", guichet_id);
+        // printf("[  -  D  -  ] [  ] Sending dequeued packet for desk %d\n", guichet_id);
         DispatcherDealsWithClientPacket(removedNode->packet_size, newPacket, removedNode->serial_number);
     } else {
-        printf("[Dispatcher] Desk %d's queue empty\n", guichet_id);
+        // printf("[  -  D  -  ] [  ] Desk %d's queue empty\n", guichet_id);
     }
 }
 
@@ -161,7 +161,7 @@ void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
     if (dispatcherIsOpen) DispatcherDealsWithClientPacket(data_size, request, info->si_value.sival_int);
     else {
         // if it's night, enqueue the requests
-        printf("[Dispatcher] Sorry client I'm sleeping (it will be done later in the day)\n");
+        // printf("[  -  D  -  ] [  ] Sorry client I'm sleeping (it will be done later in the day)\n");
         node_t *node;
         for (int i = 0; i < data_size; i++) {
             node = createNode(info->si_value.sival_int, request[i].type, request[i].delay,
@@ -184,7 +184,9 @@ void printTime() {
     int hours = (dispatcherTime / 3600) % 24;
     int minutes = (dispatcherTime % 3600) / 60;
     int secs = (dispatcherTime % 3600) % 60;
-    printf("  o  [Clock] %02d:%02d:%02d\n", hours, minutes, secs);
+    // printf("x----------x\n");
+    printf("[  %02d:%02d:%02d ]\n", hours, minutes, secs);
+    // printf("x----------x\n");
 }
 
 void timerSignalHandler(int signum, siginfo_t *info, void *context) {
@@ -197,9 +199,9 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
     int wasOpen = dispatcherIsOpen;
     dispatcherIsOpen = dispatcherTime >= 21600 && dispatcherTime < 64800;
     printTime();
-    if (wasOpen && !dispatcherIsOpen) printf("[Dispatcher] Bravo six, going dark\n");
+    if (wasOpen && !dispatcherIsOpen) printf("[  -  D  -  ] [  ] Bravo six, going dark\n");
     if (!wasOpen && dispatcherIsOpen) {
-        printf("[Dispatcher] GOOOOOOOOOD MORNING GAMERS\n");
+        printf("[  -  D  -  ] [  ] GOOOOOOOOOD MORNING GAMERS\n");
         // get the first node
         node_t *removedNode = dequeue(dispatcherClientQueue);
         if (removedNode != NULL) {
@@ -218,7 +220,7 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
             packet->delay = removedNode->delay;
             DispatcherDealsWithClientPacket(removedNode->packet_size, packet, removedNode->serial_number);
         }
-        // printf("[Dispatcher] All requests forwarded\n");
+        // printf("[  -  D  -  ] [  ] All requests forwarded\n");
 
         while(!isResponseFifoEmpty(fifoForSleepyDispatcher)) {
             response_node_t *node = dequeueResponse(fifoForSleepyDispatcher);
@@ -228,7 +230,7 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
                                                node->packet);
         }
 
-        // printf("[Dispatcher] All packet forwarded\n");
+        // printf("[  -  D  -  ] [  ] All packet forwarded\n");
     }
 }
 
@@ -377,7 +379,7 @@ int main(int argc, char const *argv[]) {
             for (int i = 0; i < GUICHET_COUNT; i++) {
                 pthread_join(guichets[i], NULL);
             }
-            printf("All guichets are dead\n");
+            // printf("All guichets are dead\n");
         } else if (guichet > 0) {
             clientPID = client;
             guichetPID = guichet;
