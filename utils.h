@@ -1,12 +1,10 @@
-/**
- * Stocke les constantes et les structures utiles pour le projet
+/*
+ * Stores the constants and the structures used in this project.
  */
 
 
 // Returned values
 #define IPC_ERROR (-1)
-#define WRITING_SUCCESS 1
-#define WRITING_ERROR (-1)
 
 // Semaphore values
 #define SEM_PRIVATE 0
@@ -14,11 +12,8 @@
 
 // Params of the application
 #define CLIENT_COUNT 2
-#define GUICHET_COUNT 10 /* /!\ must be equal to the number of possible tasks */
+#define GUICHET_COUNT 5
 #define MAX_PACKET_SEND 5
-
-// On a 2 entier dans le bloc + un tableau de maximum GUICHET_COUNT requêtes
-// TODO : peut-être changer ici (enlever le commentaire sinon)
 
 #define MAX_TIME_REQUEST 600 // 10 minutes
 #define MIN_TIME_REQUEST 60 // 1 minute
@@ -36,7 +31,7 @@
 
 // TIMER
 #define TIMER_SCALE 3600;
-#define STARTING_TIME 3600*3
+#define STARTING_TIME (3600*3)
 
 
 typedef unsigned int task_t;

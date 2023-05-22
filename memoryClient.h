@@ -22,6 +22,8 @@ typedef struct {
 
 memory_handler_client_t *client_memory_handler;
 
+int shmid_client;
+
 /**
  * Initialize a block with the given id
  * @param id The id of the block (the index in the array)
@@ -49,18 +51,18 @@ int client_initMemoryHandler() {
     ipc_key = ftok("application-shm", 4242);
     // No key = error
     if (ipc_key == IPC_ERROR) {
-        perror("ftok");
+        perror("ftok client");
         return IPC_ERROR;
     }
     // Use the key to create/get a block ID associated with the key
-    int size = sizeof(unsigned int) * 2 + sizeof(pthread_mutex_t) + sizeof(client_block_t *) * (CLIENT_COUNT);
+    int size = sizeof(unsigned int) * 2 + sizeof(pthread_mutex_t) + sizeof(client_block_t) * (CLIENT_COUNT);
     printf("Size of the client shared memory : %d with key = %u\n", size, ipc_key);
-    int shmid = shmget(ipc_key, size, IPC_CREAT | 0600);
-    if (shmid == IPC_ERROR) {
-        perror("shmget");
+    shmid_client = shmget(ipc_key, size, IPC_CREAT | 0600);
+    if (shmid_client == IPC_ERROR) {
+        perror("shmget client");
         return IPC_ERROR;
     }
-    void *shmaddr = shmat(shmid, NULL, 0);
+    void *shmaddr = shmat(shmid_client, NULL, 0);
     if (shmaddr == (void *) IPC_ERROR) return IPC_ERROR;
 
     // The shared memory is a list of blocks
@@ -69,7 +71,10 @@ int client_initMemoryHandler() {
     client_memory_handler->current_size = 0;
     pthread_mutex_init(&client_memory_handler->mutex, NULL);
 
-    client_block_t *mem = (client_block_t *) (shmaddr + sizeof(unsigned int) * 2 + sizeof(pthread_mutex_t) + sizeof(client_block_t *));
+    client_block_t *mem = (client_block_t *) (shmaddr + sizeof(unsigned int) * 2
+            + sizeof(pthread_mutex_t)
+            + sizeof(client_block_t *));
+    // TODO : tbh idk why i have to add the sizeof(guichet_block_t *) but it works like that...
     for (int i=0; i<CLIENT_COUNT; i++) {
         mem[i] = client_initBlock(i);
     }
@@ -103,6 +108,11 @@ void client_destroyMemoryHandler() {
         sem_destroy(&client_memory_handler->blocks[i].semaphore);
     }
     pthread_mutex_destroy(&client_memory_handler->mutex);
+
+    if (shmctl(shmid_client, IPC_RMID, NULL) == -1) {
+        perror("shmctl guicher");
+    }
+
     shmdt(client_memory_handler);
 }
 

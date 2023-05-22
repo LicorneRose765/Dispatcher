@@ -39,7 +39,7 @@ void *client_behavior(void *arg) {
     printf("[Client %02d] Sending packet with %d tasks.\n  | The tasks are :\n", client_id, num_requests);
     for (int i = 0; i < num_requests; i++) {
         task_t random_task = (task_t) rand() % GUICHET_COUNT;
-        time_t random_delay = rand() % 5 + 1; // Minimum 1 second and max 5 hours
+        time_t random_delay = rand() % 5 + 1; // Minimum 1 hour and max 5 hours
 
         client_packet_t current_request = {
                 .type = random_task,

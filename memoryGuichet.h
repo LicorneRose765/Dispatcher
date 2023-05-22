@@ -21,6 +21,8 @@ typedef struct {
 
 memory__handler_guichet_t *guichet_memory_handler;
 
+int shmid;
+
 
 /**
  * Initialize a block with the given id
@@ -49,17 +51,18 @@ int guichet_initMemoryHandler() {
     ipc_key = ftok("guichet-shm", 4242);
     // No key = error
     if (ipc_key == IPC_ERROR) {
-        perror("ftok");
+        perror("ftok guichet");
         return IPC_ERROR;
     }
     // Use the key to create/get a block ID associated with the key
-    int size = sizeof(unsigned int) * 2 + sizeof(pthread_mutex_t) + sizeof(guichet_block_t *) * (GUICHET_COUNT);
+    int size = sizeof(unsigned int) * 2 + sizeof(pthread_mutex_t) + sizeof(guichet_block_t) * (GUICHET_COUNT);
     printf("Size of the guichet shared memory : %d with key = %u\n", size, ipc_key);
-    int shmid = shmget(ipc_key, size, IPC_CREAT | 0600);
+    shmid = shmget(ipc_key, size, IPC_CREAT | 0600);
     if (shmid == IPC_ERROR) {
-        perror("shmget");
+        perror("shmget guichet");
         return IPC_ERROR;
     }
+    printf("shmid value = %d\n", shmid);
     void *shmaddr = shmat(shmid, NULL, 0);
     if (shmaddr == (void *) IPC_ERROR) return IPC_ERROR;
 
@@ -69,7 +72,10 @@ int guichet_initMemoryHandler() {
     guichet_memory_handler->current_size = 0;
     pthread_mutex_init(&guichet_memory_handler->mutex, NULL);
 
-    guichet_block_t *mem = (guichet_block_t *) (shmaddr + sizeof(unsigned int) * 2 + sizeof(pthread_mutex_t) + sizeof(guichet_block_t *));
+    guichet_block_t *mem = (guichet_block_t *) (shmaddr + sizeof(unsigned int) * 2
+            + sizeof(pthread_mutex_t)
+            + sizeof(guichet_block_t *));
+    // TODO : tbh idk why i have to add the sizeof(guichet_block_t *) but it works like that...
     for (int i=0; i<GUICHET_COUNT; i++) {
         mem[i] = guichet_initBlock(i);
     }
@@ -103,6 +109,11 @@ void guichet_destroyMemoryHandler() {
         sem_destroy(&guichet_memory_handler->blocks[i].semaphore);
     }
     pthread_mutex_destroy(&guichet_memory_handler->mutex);
+
+    if (shmctl(shmid, IPC_RMID, NULL) == -1) {
+        perror("shmctl guicher");
+    }
+
     shmdt(guichet_memory_handler);
 };
 

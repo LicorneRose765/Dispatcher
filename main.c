@@ -18,7 +18,7 @@
 #include "memoryGuichet.h"
 #include "client.h"
 #include "guichet.h"
-
+#include <errno.h>
 
 /******************************************************************************
 * S-INFO-111 --- Solution pour Travail 1                                      *
@@ -240,6 +240,7 @@ void shutDownSignalHandler(int signum, siginfo_t *info, void *context) {
     sigqueue(guichetPID, SIGKILL, (union sigval) NULL);
 
     client_destroyMemoryHandler();
+    guichet_destroyMemoryHandler();
     exit(EXIT_SUCCESS);
 }
 
