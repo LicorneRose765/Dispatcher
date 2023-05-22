@@ -10,28 +10,28 @@
 #define SEM_PRIVATE 0
 #define SEM_PUBLIC 1
 
-// Params of the application
-#define CLIENT_COUNT 1
-#define GUICHET_COUNT 1
-#define MAX_PACKET_SENT 1 // Number of packet sent by each client before exit
-
-#define MAX_TIME_REQUEST 12 // 12 timer signals (see TIMER_SCALE)
-#define MIN_TIME_REQUEST 0
-#define MAX_TIME_BETWEEN_REQUESTS 12
-#define MAX_TIME_BEFORE_REQUESTS 16
-
 // Signals
 #define SIGRT_REQUEST (SIGRTMIN + 0)
 #define SIGRT_RESPONSE (SIGRTMIN + 1)
 #define TIMER_SIGNAL SIGRTMAX
 
-// Guichet states
+// DESK states
 #define FREE 0
 #define WORKING 1
 
 // Dispatcher states
 #define OPENED 1
 #define CLOSED 0
+
+// Params of the application
+#define CLIENT_COUNT 3
+#define DESK_COUNT 5
+#define MAX_PACKET_SENT 2 // Number of packet sent by each client before exit
+
+#define MAX_TIME_REQUEST 12 // Max delay for a task
+#define MIN_TIME_REQUEST 1 // Min delay for a task
+#define MAX_TIME_BETWEEN_REQUESTS 12
+#define MAX_TIME_BEFORE_REQUESTS 16
 
 // TIMER
 #define TIMER_SCALE 3600; // 1 sec = 1h in the app
@@ -51,7 +51,7 @@ typedef struct {
     unsigned int block_id;
     sem_t semaphore;
     unsigned int data_size;
-    client_packet_t data[GUICHET_COUNT];
+    client_packet_t data[DESK_COUNT];
 } client_block_t;
 
 typedef struct {
@@ -60,25 +60,25 @@ typedef struct {
     unsigned int id;
 } default_information_client_t;
 
-// ======== Guichet =======
+// ======== DESK =======
 
 typedef struct {
     unsigned int serial_number;
     time_t delay;
-} guichet_packet_t;
+} desk_packet_t;
 
 typedef struct {
     unsigned int block_id;
     sem_t semaphore;
-    guichet_packet_t data;
-} guichet_block_t;
+    desk_packet_t data;
+} desk_block_t;
 
 typedef struct {
     pid_t dispatcher_id;
-    guichet_block_t *block;
+    desk_block_t *block;
     unsigned int id;
     task_t task;
-} default_information_guichet_t;
+} default_information_desk_t;
 
 
 // ====== Dispatcher ======

@@ -20,7 +20,7 @@
 /**
  * Behavior of the desk process when first running : set basic info such as ID and the corresponding shared memory
  * block, the minimum and maximum waiting time and the number of requests then follow the client's behavior.
- * @param arg default_information_guichet_t
+ * @param arg default_information_desk_t
  */
 void *client_behavior(void *arg) {
     default_information_client_t *info = (default_information_client_t *) arg;
@@ -31,7 +31,10 @@ void *client_behavior(void *arg) {
 
     time_t min_time = (rand() % MAX_TIME_BEFORE_REQUESTS + 1);
     time_t max_time = (rand() % MAX_TIME_BETWEEN_REQUESTS + 1);
-    int num_requests = (rand() % GUICHET_COUNT) + 1; // Minimum 1 task and max GUICHET_COUNT tasks
+    int num_requests = (rand() % DESK_COUNT) + 1; // Minimum 1 task and max DESK_COUNT tasks
+
+    printf("[  C  -  -  ] [%d] Client created with min_time = %ld, max_time = %ld and task per packet = %d\n",
+           client_id, max_time, min_time, num_requests);
 
     // Used to share the client id in the signal
     union sigval value;
@@ -46,8 +49,8 @@ void *client_behavior(void *arg) {
 
         printf("[  C  -  -  ] [%02d] Sending packet with %d tasks.\n                 | The tasks are :\n", client_id, num_requests);
         for (int i = 0; i < num_requests; i++) {
-            task_t random_task = (task_t) rand() % GUICHET_COUNT;
-            time_t random_delay = rand() % 5 + 1; // Minimum 1 hour and max 5 hours
+            task_t random_task = (task_t) rand() % DESK_COUNT;
+            time_t random_delay = rand() % MAX_TIME_REQUEST + MIN_TIME_REQUEST;
 
             client_packet_t current_request = {
                     .type = random_task,
@@ -73,7 +76,7 @@ void *client_behavior(void *arg) {
         }
 
         // Wait delay between packet
-        sleep(max_time);
+        if (packetCounter != MAX_PACKET_SENT) sleep(max_time);
     }
     pthread_exit(EXIT_SUCCESS);
 

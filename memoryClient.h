@@ -1,5 +1,6 @@
 /*
  * This file contains all the functions needed to manage the shared memory between the clients and the dispatcher.
+ *
  * The shared memory consist of a memory handler which contains :
  *      - The maximum size of the memory (the number of blocks)
  *      - The current number of block claimed
@@ -12,8 +13,6 @@
  *     - A unsigned int to store the size of the data
  *     - Data to store (list of request)
  */
-
-// TODO : comment this file correctly
 
 typedef struct {
     unsigned int max_size;
@@ -74,10 +73,10 @@ int client_initMemoryHandler() {
     pthread_mutex_init(&client_memory_handler->mutex, NULL);
 
     client_block_t *mem = (client_block_t *) (shmaddr + sizeof(unsigned int) * 2
-            + sizeof(pthread_mutex_t)
-            + sizeof(client_block_t *));
-    // TODO : tbh idk why i have to add the sizeof(guichet_block_t *) but it works like that...
-    for (int i=0; i<CLIENT_COUNT; i++) {
+                                              + sizeof(pthread_mutex_t)
+                                              + sizeof(client_block_t *));
+    // TODO : tbh idk why i have to add the sizeof(desk_block_t *) but it works like that...
+    for (int i = 0; i < CLIENT_COUNT; i++) {
         mem[i] = client_initBlock(i);
     }
 
@@ -90,7 +89,7 @@ int client_initMemoryHandler() {
  * Secure a block and gives the memory address of the block.
  * @return The memory address of the block, NULL if there is no block available.
  */
-client_block_t *client_claimBlock(){
+client_block_t *client_claimBlock() {
     pthread_mutex_lock(&client_memory_handler->mutex);
     if (client_memory_handler->current_size == client_memory_handler->max_size + 1) {
         pthread_mutex_unlock(&client_memory_handler->mutex);
@@ -106,13 +105,13 @@ client_block_t *client_claimBlock(){
  * Free the blocks and the memory handler.
  */
 void client_destroyMemoryHandler() {
-    for (int i=0; i < client_memory_handler->max_size; i++) {
+    for (int i = 0; i < client_memory_handler->max_size; i++) {
         sem_destroy(&client_memory_handler->blocks[i].semaphore);
     }
     pthread_mutex_destroy(&client_memory_handler->mutex);
 
     if (shmctl(shmid_client, IPC_RMID, NULL) == -1) {
-        perror("shmctl guicher");
+        perror("shmctl client");
     }
 
     shmdt(client_memory_handler);
@@ -132,9 +131,9 @@ client_block_t *client_getBlock(unsigned int id) {
  * @param block The block of the client
  * @param data The data to send to the dispatcher
  */
-void  clientWritingRequest(client_block_t *block, unsigned int request_size, client_packet_t *data) {
-    block-> data_size = request_size;
-    for(int i=0; i< request_size; i++) {
+void clientWritingRequest(client_block_t *block, unsigned int request_size, client_packet_t *data) {
+    block->data_size = request_size;
+    for (int i = 0; i < request_size; i++) {
         block->data[i] = data[i];
     }
     free(data);

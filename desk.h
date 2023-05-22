@@ -15,32 +15,30 @@
 /**
  * Behavior of the desk process when first running : set basic info such as ID and the corresponding shared memory block
  * then follow the desk's behavior.
- * @param arg default_information_guichet_t
+ * @param arg default_information_desk_t
  */
-void *guichet_behavior(void *arg) {
-    srand(time(0));
-
-    default_information_guichet_t *info = (default_information_guichet_t *) arg;
+void *desk_behavior(void *arg) {
+    default_information_desk_t *info = (default_information_desk_t *) arg;
     pid_t dispatcher_id = info->dispatcher_id;
-    guichet_block_t *block = info->block;
-    unsigned int guichet_id = info->id;
+    desk_block_t *block = info->block;
+    unsigned int desk_id = info->id;
 
     union sigval value;
-    value.sival_int = guichet_id;
+    value.sival_int = desk_id;
 
 
     while (1) {
         // Wait for work
-        guichet_packet_t work = (guichet_packet_t) guichet_waitForWork(block);
-        printf("[  -  -  G  ] [%02d] Received work, working for : %ldh\n", guichet_id, work.delay);
+        desk_packet_t work = (desk_packet_t) desk_waitForWork(block);
+        printf("[  -  -  G  ] [%02d] Received work, working for : %ldh\n", desk_id, work.delay);
 
         sleep(work.delay);
 
         // send the response to the dispatcher.
         // The response is the same packet, but we can easily add data to it if want had to.
 
-        guichet_sendResponse(block, work);
-        printf("[  -  -  G  ] [%02d] Sending response\n", guichet_id);
+        desk_sendResponse(block, work);
+        printf("[  -  -  G  ] [%02d] Sending response\n", desk_id);
         sigqueue(dispatcher_id, SIGRT_RESPONSE,  value);
     }
 
