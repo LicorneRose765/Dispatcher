@@ -65,7 +65,7 @@ void DispatcherDealsWithClientPacket(unsigned int packet_size, client_packet_t *
     };
     if (desksOccupancy[guichet] == WORKING) {
         printf("[Dispatcher] Desk %d is full, enqueueing\n", guichet);
-        node_t *node = createNode(client_id, request->type, request->delay, 1);
+        node_t *node = createNode(client_id, request->type, request->delay, packet_size);
         enqueue(desksQueues[guichet], node);
     } else {
         printf("[Dispatcher] Sending work to guichet %d\n", guichet);
@@ -90,7 +90,7 @@ void DispatcherDealsWithGuichetPacket(guichet_packet_t packet, unsigned int guic
         printf("[Dispatcher] Queue not empty for desk %d, dequeueing\n", guichet_id);
         node_t *removedNode = dequeue(desksQueues[guichet_id]);
         // if it's not null, create a packet with it
-        client_packet_t *packet = malloc(sizeof(client_packet_t));
+        client_packet_t *packet = malloc(sizeof(client_packet_t) * removedNode->packet_size);
         packet->type = removedNode->task;
         packet->delay = removedNode->delay;
         // and deal with the packet
