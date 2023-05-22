@@ -41,6 +41,9 @@ Fifo *dispatcherDeskQueue;
 pid_t clientPID;
 pid_t guichetPID;
 
+Fifo *desksQueues[GUICHET_COUNT];
+int desksOccupancy[GUICHET_COUNT];
+
 
 // ========= Dispatcher buffers ==========
 // TODO : create here the queues for the dispatcher
@@ -60,12 +63,21 @@ void DispatcherDealsWithClientPacket(unsigned int packet_size, client_packet_t *
             .delay = request->delay,
             .serial_number = client_id
     };
-    printf("[DISPATCHER] Sending work to guichet %d\n", guichet);
-    guichet_dispatcherSendsWork(guichet_block, work);
+    if (desksOccupancy[guichet] == WORKING) {
+        printf("[Dispatcher] Desk %d is full, enqueueing\n", guichet);
+        node_t *node = createNode(client_id, request->type, request->delay, 1);
+        enqueue(desksQueues[guichet], node);
+    } else {
+        printf("[Dispatcher] Sending work to guichet %d\n", guichet);
+        desksOccupancy[guichet] = WORKING;
+        guichet_dispatcherSendsWork(guichet_block, work);
+    }
 }
 
 void DispatcherDealsWithGuichetPacket(guichet_packet_t packet, unsigned int guichet_id) {
     // Send the response to the client
+    printf("[Dispatcher] Received response from guichet %d, freeing occupancy\n", guichet_id);
+    desksOccupancy[guichet_id] = FREE;
     client_block_t *client_block = client_getBlock(packet.serial_number);
     client_packet_t* response = malloc(sizeof(client_packet_t));
     response[0].type = guichet_id;
@@ -73,6 +85,20 @@ void DispatcherDealsWithGuichetPacket(guichet_packet_t packet, unsigned int guic
 
     printf("[DISPATCHER] Sending response to client %d\n", packet.serial_number);
     dispatcherWritingResponseForClient(client_block, 1, response);
+
+    if (!isEmpty(desksQueues[guichet_id])) {
+        printf("[Dispatcher] Queue not empty for desk %d, dequeueing\n", guichet_id);
+        node_t *removedNode = dequeue(desksQueues[guichet_id]);
+        // if it's not null, create a packet with it
+        client_packet_t *packet = malloc(sizeof(client_packet_t));
+        packet->type = removedNode->task;
+        packet->delay = removedNode->delay;
+        // and deal with the packet
+        printf("[Dispatcher] Sending dequeued packet for desk %d\n", guichet_id);
+        DispatcherDealsWithClientPacket(removedNode->packet_size, packet, removedNode->serial_number);
+    } else {
+        printf("[Dispatcher] Desk %d's queue empty\n", guichet_id);
+    }
 }
 
 // ========= Signal handling dispatcher ===========
@@ -95,7 +121,7 @@ void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
 }
 
 void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
-    printf("[Dispatcher] Received response from guichet\n");
+    printf("[Dispatcher] Received response signal from guichet\n");
 
     guichet_block_t *block = guichet_getBlock(info->si_value.sival_int);
     guichet_packet_t work = guichet_dispatcherGetResponseFromGuichet(block);
@@ -246,6 +272,11 @@ int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
 
     dispatcherClientQueue = createFifo();
     dispatcherDeskQueue = createFifo();
+
+    for (int i = 0; i < GUICHET_COUNT; i++) {
+        desksQueues[i] = createFifo();
+        desksOccupancy[i] = FREE;
+    }
 
     while(1) {
         pause();

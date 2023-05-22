@@ -23,11 +23,11 @@ void *client_behavior(void *arg) {
     client_block_t *block = info->block;
     unsigned int client_id = info->id;
 
-    printf("[Client : %d] Creating a client with block %d\n", client_id, block->block_id);
+    printf("[Client %02d] Creating a client with block %d\n", client_id, block->block_id);
 
     time_t temps_min = (rand() % MAX_TIME_BEFORE_REQUESTS + 1);
     time_t temps_max = (rand() % MAX_TIME_BETWEEN_REQUESTS + 1);
-    int num_requests = (rand() % GUICHET_COUNT) + 1; // Minimum 1 task and max GUICHET_COUNT tasks
+    int num_requests = 2; //(rand() % 2) + 1; // Minimum 2 task and max 2 tasks
 
     // Used to share the client id in the signal
     union sigval value;
@@ -38,7 +38,7 @@ void *client_behavior(void *arg) {
 
     for (int i = 0; i < num_requests; i++) {
         task_t random_task = (task_t) rand() % GUICHET_COUNT;
-        time_t random_delay = 16; //rand() % 10 + 1; // Minimum 1 second and max 10 seconds
+        time_t random_delay = rand() % 5 + 1; // Minimum 1 second and max 5 hours
 
         client_packet_t current_request = {
                 .type = random_task,
@@ -48,12 +48,9 @@ void *client_behavior(void *arg) {
         packet[i] = current_request;
     }
 
-
-
-
     clientWritingRequest(block, num_requests, packet);
 
-    printf("[Client : %d] Sending request signal\n", client_id);
+    printf("[Client %02d] Sending request signal\n", client_id);
     sigqueue(dispatcher_id, SIGRT_REQUEST, value);
 
 
@@ -67,5 +64,4 @@ void *client_behavior(void *arg) {
     sleep(temps_max);
 
 
-    free(packet); // TODO : why not working
 }

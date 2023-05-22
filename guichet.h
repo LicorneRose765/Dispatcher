@@ -35,7 +35,7 @@ void *guichet_behavior(void *arg) {
 
     while (1) {
         guichet_packet_t work = (guichet_packet_t) guichet_waitForWork(block);
-        printf("[Guichet : %d] Received work, working for : %ldh\n", guichet_id, work.delay);
+        printf("[Guichet %02d] Received work, working for : %ldh\n", guichet_id, work.delay);
 
         sleep(work.delay);
 
@@ -43,7 +43,7 @@ void *guichet_behavior(void *arg) {
         //work.delay = (time_t) NULL;
 
         guichet_sendResponse(block, work);
-        printf("[Guichet : %d] Sending response\n", guichet_id);
+        printf("[Guichet %02d] Sending response\n", guichet_id);
         sigqueue(dispatcher_id, SIGRT_RESPONSE,  value);
     }
 
