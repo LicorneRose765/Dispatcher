@@ -4,13 +4,6 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
-task_t get_random_task_type() {
-    srand(time(NULL));
-    int random_num = rand() % 3;
-    task_t random_task = (task_t) random_num;
-    return random_task;
-}
-
 
 void *guichet_behavior(void *arg) {
     /**
@@ -31,7 +24,7 @@ void *guichet_behavior(void *arg) {
     union sigval value;
     value.sival_int = guichet_id;
 
-    printf("[Guichet block id : %d] Creating a guichet with task : %d\n",guichet_id ,task_type);
+    // printf("[Guichet block id : %d] Creating a guichet with task : %d\n",guichet_id ,task_type);
 
     while (1) {
         guichet_packet_t work = (guichet_packet_t) guichet_waitForWork(block);

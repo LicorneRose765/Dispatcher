@@ -13,11 +13,11 @@
 
 #include "utils.h"
 #include "fifo.h"
+#include "responseFifo.h"
 #include "memoryClient.h"
 #include "memoryGuichet.h"
 #include "client.h"
 #include "guichet.h"
-
 
 
 /******************************************************************************
@@ -35,8 +35,6 @@ union sigval value;
 
 long dispatcherTime = STARTING_TIME;
 int dispatcherIsOpen = 0;
-Fifo *dispatcherClientQueue;
-Fifo *dispatcherDeskQueue;
 
 pid_t clientPID;
 pid_t guichetPID;
@@ -45,17 +43,65 @@ Fifo *desksQueues[GUICHET_COUNT];
 int desksOccupancy[GUICHET_COUNT];
 
 
-// ========= Dispatcher buffers ==========
-// TODO : create here the queues for the dispatcher
+// ========= Dispatcher buffers & function for buffers ==========
+// Keep track of the state of the desks
+Fifo *dispatcherClientQueue;
+response_fifo *fifoForSleepyDispatcher;
+
+client_response_buffer clientResponseBuffer[CLIENT_COUNT];
+
+/**
+ * Creates a buffer to wait for all the responses before sending the whole packet to the client
+ * @param numberOfResponse The number of responses to wait
+ * @param clientID The id of the client.
+ */
+void createNodeOnClientBuffer(unsigned int numberOfResponse, unsigned int clientID){
+    client_response_buffer buffer = {
+            .response_to_wait = numberOfResponse,
+            .responses = malloc(sizeof(client_packet_t) * numberOfResponse)
+    };
+    clientResponseBuffer[clientID] = buffer;
+}
+
+
+/**
+ * Send all the responses to the client and free the buffer
+ * @param clientID The id of the client
+ */
+void sendToClient(unsigned int clientID){
+    client_response_buffer buffer = clientResponseBuffer[clientID];
+    client_block_t *clientBlock = client_getBlock(clientID);
+
+    if (dispatcherIsOpen) {
+        printf("[Dispatcher] Sending packet to client %u\n", clientID);
+        dispatcherWritingResponseForClient(clientBlock,
+                                           buffer.response_to_wait,
+                                           buffer.responses);
+    }
+    else {
+        // if it's night, enqueue the requests
+        // printf("[Dispatcher] Sorry desk I'm sleeping (it will be done later in the day)\n");
+        printf("[Dispatcher] I'm sleeping, adding the packet for the client %u to the queue\n", clientID);
+        response_node_t *node = createResponseNode(buffer.responses, buffer.response_to_wait, clientID);
+        enqueueResponse(fifoForSleepyDispatcher, node);
+    }
+}
+
+
+void addNewResponse(unsigned int clientID, client_packet_t response) {
+    printf("[Dispatcher] add a new response for the client %u\n", clientID);
+    client_response_buffer *buffer = &clientResponseBuffer[clientID];
+    buffer->responses[buffer->response_received] = response;
+    buffer->response_received += 1;
+
+    if (buffer->response_received == buffer->response_to_wait) {
+        sendToClient(clientID);
+    }
+}
 
 
 // ========= Dispatcher utility functions =========
 void DispatcherDealsWithClientPacket(unsigned int packet_size, client_packet_t *request, unsigned int client_id) {
-    printf("[DISPATCHER] Received %d task from client %d \n The tasks are : \n", packet_size, client_id);
-    for(int i=0; i<packet_size; i++){
-        printf("\t type : %d - delay : %ld\n", request[i].type, request[i].delay);
-    }
-
     unsigned int guichet = request->type;
     guichet_block_t *guichet_block = guichet_getBlock(guichet);
 
@@ -78,24 +124,22 @@ void DispatcherDealsWithGuichetPacket(guichet_packet_t packet, unsigned int guic
     // Send the response to the client
     printf("[Dispatcher] Received response from guichet %d, freeing occupancy\n", guichet_id);
     desksOccupancy[guichet_id] = FREE;
-    client_block_t *client_block = client_getBlock(packet.serial_number);
-    client_packet_t* response = malloc(sizeof(client_packet_t));
-    response[0].type = guichet_id;
-    response[0].delay = packet.delay;
-
-    printf("[DISPATCHER] Sending response to client %d\n", packet.serial_number);
-    dispatcherWritingResponseForClient(client_block, 1, response);
+    client_packet_t response = {
+            .type = guichet_id,
+            .delay = packet.delay
+    };
+    addNewResponse(packet.serial_number, response);
 
     if (!isEmpty(desksQueues[guichet_id])) {
         printf("[Dispatcher] Queue not empty for desk %d, dequeueing\n", guichet_id);
         node_t *removedNode = dequeue(desksQueues[guichet_id]);
         // if it's not null, create a packet with it
-        client_packet_t *packet = malloc(sizeof(client_packet_t) * removedNode->packet_size);
-        packet->type = removedNode->task;
-        packet->delay = removedNode->delay;
+        client_packet_t *newPacket = malloc(sizeof(client_packet_t) * removedNode->packet_size);
+        newPacket->type = removedNode->task;
+        newPacket->delay = removedNode->delay;
         // and deal with the packet
         printf("[Dispatcher] Sending dequeued packet for desk %d\n", guichet_id);
-        DispatcherDealsWithClientPacket(removedNode->packet_size, packet, removedNode->serial_number);
+        DispatcherDealsWithClientPacket(removedNode->packet_size, newPacket, removedNode->serial_number);
     } else {
         printf("[Dispatcher] Desk %d's queue empty\n", guichet_id);
     }
@@ -104,9 +148,15 @@ void DispatcherDealsWithGuichetPacket(guichet_packet_t packet, unsigned int guic
 // ========= Signal handling dispatcher ===========
 
 void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
+    // Packet reveived from client
     client_block_t *block = client_getBlock(info->si_value.sival_int);
     unsigned int data_size = block->data_size;
-    client_packet_t * request = dispatcherGetDataFromClient(block);
+    client_packet_t *request = dispatcherGetDataFromClient(block);
+
+
+    createNodeOnClientBuffer(data_size, info->si_value.sival_int);
+
+
     // if it's day, go ahead
     if (dispatcherIsOpen) DispatcherDealsWithClientPacket(data_size, request, info->si_value.sival_int);
     else {
@@ -114,25 +164,20 @@ void DispatcherHandleRequest(int signum, siginfo_t *info, void *context) {
         printf("[Dispatcher] Sorry client I'm sleeping (it will be done later in the day)\n");
         node_t *node;
         for (int i = 0; i < data_size; i++) {
-            node = createNode(info->si_value.sival_int, request[i].type, request[i].delay, data_size);  // TODO serial number = client_id ?
+            node = createNode(info->si_value.sival_int, request[i].type, request[i].delay,
+                              data_size);
             enqueue(dispatcherClientQueue, node);
         }
     }
 }
 
 void DispatcherHandleResponse(int signum, siginfo_t *info, void *context) {
-    printf("[Dispatcher] Received response signal from guichet\n");
-
-    guichet_block_t *block = guichet_getBlock(info->si_value.sival_int);
+    // Received response signal
+    task_t task = info->si_value.sival_int;
+    guichet_block_t *block = guichet_getBlock(task);
     guichet_packet_t work = guichet_dispatcherGetResponseFromGuichet(block);
 
-    if (dispatcherIsOpen) DispatcherDealsWithGuichetPacket(work, info->si_value.sival_int);
-    else {
-        // if it's night, enqueue the requests
-        printf("[Dispatcher] Sorry desk I'm sleeping (it will be done later in the day)\n");
-        node_t *node = createNode(info->si_value.sival_int, 0, work.delay, 1);  // TODO task = NULL ?
-        enqueue(dispatcherDeskQueue, node);
-    }
+    DispatcherDealsWithGuichetPacket(work, info->si_value.sival_int);
 }
 
 void printTime() {
@@ -144,7 +189,6 @@ void printTime() {
 
 void timerSignalHandler(int signum, siginfo_t *info, void *context) {
     // Handle the timer signal
-    // printf("============================ Received timer signal\n");
     dispatcherTime += TIMER_SCALE;
     if (dispatcherTime > 86400) {
         dispatcherTime = dispatcherTime % 86400;
@@ -174,26 +218,17 @@ void timerSignalHandler(int signum, siginfo_t *info, void *context) {
             packet->delay = removedNode->delay;
             DispatcherDealsWithClientPacket(removedNode->packet_size, packet, removedNode->serial_number);
         }
-        printf("[Dispatcher] All requests forwarded\n"); // TODO : not taking into account that some desks could be full
+        // printf("[Dispatcher] All requests forwarded\n");
 
-        // get the first node
-        removedNode = dequeue(dispatcherDeskQueue);
-        if (removedNode != NULL) {
-            // if it's not null, create a packet with it
-            guichet_packet_t *packet = malloc(sizeof(guichet_packet_t));
-            packet->delay = removedNode->delay;
-            // and deal with the packet
-            DispatcherDealsWithGuichetPacket(*packet, removedNode->serial_number);
+        while(!isResponseFifoEmpty(fifoForSleepyDispatcher)) {
+            response_node_t *node = dequeueResponse(fifoForSleepyDispatcher);
+            client_block_t *clientBlock = client_getBlock(node->clientID);
+            dispatcherWritingResponseForClient(clientBlock,
+                                               node->packetSize,
+                                               node->packet);
         }
-        // repeat
-        while (!isEmpty(dispatcherDeskQueue)) {
-            removedNode = dequeue(dispatcherDeskQueue);
-            guichet_packet_t *packet = malloc(sizeof(guichet_packet_t));
-            packet->delay = removedNode->delay;
-            DispatcherDealsWithGuichetPacket(*packet, removedNode->serial_number);
-        }
-        free(removedNode);
-        printf("[Dispatcher] All responses forwarded\n");
+
+        // printf("[Dispatcher] All packet forwarded\n");
     }
 }
 
@@ -271,14 +306,15 @@ int dispatcher_behavior(pthread_t *guichets, pthread_t *clients, char *block) {
     sigprocmask(SIG_SETMASK, &mask, NULL);
 
     dispatcherClientQueue = createFifo();
-    dispatcherDeskQueue = createFifo();
 
     for (int i = 0; i < GUICHET_COUNT; i++) {
         desksQueues[i] = createFifo();
         desksOccupancy[i] = FREE;
     }
 
-    while(1) {
+    fifoForSleepyDispatcher = createResponseFifo();
+
+    while (1) {
         pause();
     }
 
@@ -327,7 +363,7 @@ int main(int argc, char const *argv[]) {
         if (guichet == 0) {
             // Créer des thread avec tous les guichets
             for (int i = 0; i < GUICHET_COUNT; i++) {
-                default_information_guichet_t *arg = malloc(sizeof(default_information_guichet_t ));
+                default_information_guichet_t *arg = malloc(sizeof(default_information_guichet_t));
                 guichet_block_t *block = guichet_claimBlock();
                 arg->block = block;
                 arg->id = block->block_id;
@@ -356,6 +392,5 @@ int main(int argc, char const *argv[]) {
         return EXIT_FAILURE;
     }
     free(dispatcherClientQueue);
-    free(dispatcherDeskQueue);
     return EXIT_SUCCESS;
 }

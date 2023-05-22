@@ -13,8 +13,8 @@
 #define SEM_PUBLIC 1
 
 // Params of the application
-#define CLIENT_COUNT 1
-#define GUICHET_COUNT 1 /* /!\ must be equal to the number of possible tasks */
+#define CLIENT_COUNT 2
+#define GUICHET_COUNT 10 /* /!\ must be equal to the number of possible tasks */
 #define MAX_PACKET_SEND 5
 
 // On a 2 entier dans le bloc + un tableau de maximum GUICHET_COUNT requêtes
@@ -82,5 +82,11 @@ typedef struct {
 } default_information_guichet_t;
 
 
-// Communication structures
+// ====== Dispatcher ======
 
+// Used to store the clients packet and waits for all the responses.
+typedef struct {
+    unsigned int response_to_wait;
+    unsigned int response_received;
+    client_packet_t *responses;
+} client_response_buffer;
